@@ -1,17 +1,31 @@
 var set_component_in = function(object, className, id, component){ 
-	var p = object,
-		k = className,
-		v = id,
-		c = component;
-		p[k] = (p[k] === "undefined") ? {} : p[k];
-
+	var p = object;
+	for (var i = 1; i < arguments.length - 1; i++){
+		var a = arguments[i];
+		if (p[a] === undefined){
+			p[a] = {};
+		}
+		p = p[a];
+	}
+	p = component;
 	return;
 };
 
 var get_component_in = function(object, className, id){
-	var o = object;
-	var result = (o[className][id]) ? o[className][id] : undefined;
-	return result;
+	var p = object;
+	var o = null;
+	for (var key in p){
+		if (key == className){
+			for (var a in p[key]){
+				if (a == id){
+					o = p[key];
+					break;
+				}
+			}
+		}
+	}
+	
+	return o;
 };
 
 
@@ -114,12 +128,12 @@ var CommonComponent = Object.inherit(
 	createComponent: function(classDefenition, data){
 		//var classDef = window[classDefenition];
 		var className = classDefenition.prototype.__className;
-		var component = new classDefenition(data);
 		if (!data.parent){
 			data.parent = this;
 		}
+		var component = new classDefenition(data);
 		set_component_in(this.components, className, component.id, component);
-		console.log("create component done, created: " + classDefenition + ", " + data.name);
+		console.log("create component done, created: " + className + ", with name:" + data.name);
 		return component;
 	},
 
@@ -160,8 +174,10 @@ var World = CommonComponent.inherit(
 
 var world = new World({id:"main", name:"DesertHiils", parent:window});
 var playerOne = world.createComponent(Player, {name:"player1"});
+var playerTwo = world.createComponent(Player, {name:"player2"});
+var playerThree = world.createComponent(Player, {name:"player3"});
 
-$.document.ready(function(){
+$(document).ready(function(){
 	$("input.pause").click(function(){ 
 		var attribute = $(this).attr("value") == "pause" ? "unpause" : "pause";
 		$(this).attr("value", attribute);
