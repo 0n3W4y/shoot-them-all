@@ -72,7 +72,7 @@ var CommonShoot = Trait.inherit({
 	__className: "CommonShoot",
 
 	shoot: function(target){
-		this.onShoot();
+		this.onShoot(target);
 	},
 
 	clip: 12,
@@ -82,7 +82,7 @@ var CommonShoot = Trait.inherit({
 
 	onReload: function(){
 
-	}
+	},
 
 	onShoot: function(target){
 		var rightNow = this.timeToConsole();
@@ -229,12 +229,12 @@ var World = CommonComponent.inherit(
 	gameMap: {x: 100, y: 100},
 	update: function(delta){
 		this.moveAllPlayers(delta);
-		this.shootAllPlayer(delta);
+		this.shootAllPlayers(delta);
 	},
 
 	moveDelta: 0,
 	moveAllPlayers: function(delta){
-		if (this.moveDelta > 1000){ // one time per second;
+		if (this.moveDelta > 2000){ // one time per second;
 			this.moveDelta = 0;
 			var o = this.components.Player
 			for (var key in o){
@@ -247,7 +247,7 @@ var World = CommonComponent.inherit(
 
 	shootDelta: 0,
 	shootAllPlayers: function(delta){ // velocity можно сделать как выстрелы в секунду, и обрабатывать уже на трейте. Попробую позже.
-		if (this.shootDelta > 500){ // one time per halfsecond;
+		if (this.shootDelta > 1500){ // one time per halfsecond;
 			var arr = [];
 			this.shootDelta = 0;
 			var o = this.components.Player
@@ -255,9 +255,15 @@ var World = CommonComponent.inherit(
 				var p = o[key];
 				arr.push(p);
 			}
-			var newArr.sort(randomSortingForArray());
-			for (var i = 0; i < newArr.length; i++){
-				this.shoot(newArr[i]);
+			arr.sort(randomSortingForArray);
+			for (var i = 0; i < arr.length; i++){
+				for (var j = 0; j < 1;){
+					var a = Math.round(Math.random()*(arr.length-1));
+					if (a != i){
+						j = 1;
+					}
+				}
+				arr[i].shoot(arr[a]);
 			}
 		}
 		this.shootDelta += delta;
