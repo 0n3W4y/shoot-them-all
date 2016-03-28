@@ -1,13 +1,14 @@
 var set_component_in = function(object, className, id, component){ 
 	var p = object;
-	for (var i = 1; i < arguments.length - 1; i++){
+	var f = id;
+	for (var i = 1; i < arguments.length - 2; i++){
 		var a = arguments[i];
 		if (p[a] === undefined){
 			p[a] = {};
 		}
 		p = p[a];
 	}
-	p = component;
+	p[f] = component;
 	return;
 };
 
@@ -28,6 +29,26 @@ var get_component_in = function(object, className, id){
 	return o;
 };
 
+var randomMovePoint = function(player){
+	var x, y;
+	var p = player;
+	var point = player.currentPoint;
+	if (point === null){ //spawn;
+		var worldMapX = world.gameMap.x;
+		var worldMapY = world.gameMap.y;
+		x = Math.round(Math.random()*worldMapX);
+		y = Math.round(Math.random()*worldMapY);
+	}else{
+		var a = Math.round(Math.random()) ? p.velocity : -p.velocity;
+		var pX = point.x;
+		var pY = point.y;
+		x = pX + a;
+		y = pY + a;
+		x = (x <= 100 && x >= 0) ? x : pX;
+		y = (y <= 100 && y >= 0) ? y : pY;
+	}
+	return {"x": x, "y": y};
+}
 
 //-------------------------------------------------------------------------------------------------------------------------||
 
@@ -42,8 +63,14 @@ var CommonDeath = Trait.inherit({
 var CommonShoot = Trait.inherit({
 	__className: "CommonShoot",
 
-	shoot: function(){
+	shoot: function(target){
 
+	},
+
+	onShoot: function(target){
+		var time = ($.now);
+		var date = new Date(time);
+		console.log("[" + date + "]" + this.name + "shooted to " + target.name + "and ...");// + "miss/hit"
 	}
 });
 
@@ -51,9 +78,20 @@ var CommonWalk = Trait.inherit({
 	__className: "CommonWalk",
 
 	velocity: "1", // 1 step
+	currentPoint: null,
+	move: function(point){
+		this.currentPoint = point;
+		this.onMove();
+	},
 
-	move: function(){
-
+	onMove: function(){ //log
+		var time = $.now();
+		var date = new Date(time);
+		var hh = date.getHours();
+		var mm = date.getMinutes();
+		var ss = date.getSeconds();
+		var ms = date.getMilliseconds();
+		console.log("[" + hh + ":" + mm + ":" + ss + ":" + ms + "]" + this.name + " was moved to: x=" + this.currentPoint.x + "; y=" + this.currentPoint.y);
 	}
 });
 
@@ -103,6 +141,7 @@ var CommonTick = Trait.inherit({
 		}
 		this.update(delta);
 		this.lastTick = time;
+		console.log("tick");
 	}
 });
 
@@ -167,8 +206,21 @@ var World = CommonComponent.inherit(
 {
 	__className: "World",
 
+	gameMap: {x: 100, y:100},
 	update: function(delta){
-
+		this.shootAllPlayers(delta);
+	},
+	deltaTime: 0,
+	shootAllPlayers: function(delta){
+		if (this.deltaTime > 1000){ // one time per second;
+			this.deltaTime = 0;
+			var o = this.components.Player
+			for (var key in o){
+				var p = o[key];
+				p.move(randomMovePoint(p));
+			}
+		}
+		this.deltaTime += delta;
 	}
 });
 
@@ -178,10 +230,11 @@ var playerTwo = world.createComponent(Player, {name:"player2"});
 var playerThree = world.createComponent(Player, {name:"player3"});
 
 $(document).ready(function(){
-	$("input.pause").click(function(){ 
+	$("input.pause").attr("onclick", function(){
 		var attribute = $(this).attr("value") == "pause" ? "unpause" : "pause";
 		$(this).attr("value", attribute);
-		return "wolrd.togglePause";
-	});
-	$("input.start").click("world.startLoop");
+		return "world.togglePause()";});
+	$("input.start").attr("onclick", "world.startLoop()");
+	$("input.generateBot").attr("onclick", "addBotToWorld()");
+	$("input.removeBot").attr("onclick", "removeBotFromWorld()");
 })
