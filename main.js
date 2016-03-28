@@ -48,6 +48,14 @@ var randomMovePoint = function(player){
 		pointY = (pointY <= 100 && pointY >= 0) ? pointY : pY;
 	}
 	return {x: pointX, y: pointY};
+};
+
+var randomShoot = function(player){
+
+};
+
+var randomSortingForArray = function(a, b){
+	return Math.round(Math.random());
 }
 
 //-------------------------------------------------------------------------------------------------------------------------||
@@ -64,13 +72,21 @@ var CommonShoot = Trait.inherit({
 	__className: "CommonShoot",
 
 	shoot: function(target){
+		this.onShoot();
+	},
+
+	clip: 12,
+	reload: function(){
 
 	},
 
+	onReload: function(){
+
+	}
+
 	onShoot: function(target){
-		var time = ($.now);
-		var date = new Date(time);
-		console.log("[" + date + "]" + this.name + "shooted to " + target.name + "and ...");// + "miss/hit"
+		var rightNow = this.timeToConsole();
+		console.log(rightNow + this.name + " shooted to " + target.name + ", and ...");// + "miss/hit"
 	}
 });
 
@@ -85,13 +101,8 @@ var CommonWalk = Trait.inherit({
 	},
 
 	onMove: function(){ //log
-		var time = $.now();
-		var date = new Date(time);
-		var hh = date.getHours();
-		var mm = date.getMinutes();
-		var ss = date.getSeconds();
-		var ms = date.getMilliseconds();
-		console.log("[" + hh + ":" + mm + ":" + ss + ":" + ms + "]" + this.name + " was moved to: x=" + this.currentPoint.x + "; y=" + this.currentPoint.y);
+		var rightNow = this.timeToConsole();
+		console.log(rightNow + this.name + " was moved to: x=" + this.currentPoint.x + "; y=" + this.currentPoint.y);
 	}
 });
 
@@ -141,7 +152,6 @@ var CommonTick = Trait.inherit({
 		}
 		this.update(delta);
 		this.lastTick = time;
-		console.log("tick");
 	}
 });
 
@@ -186,6 +196,16 @@ var CommonComponent = Object.inherit(
 			console.log("id created");
 			return v.toString(16);
 		});
+	},
+
+	timeToConsole: function(){
+		var time = $.now();
+		var date = new Date(time);
+		var hh = date.getHours();
+		var mm = date.getMinutes();
+		var ss = date.getSeconds();
+		var ms = date.getMilliseconds();
+		return "[" + hh + ":" + mm + ":" + ss + ":" + ms + "]"
 	}
 
 });
@@ -208,32 +228,52 @@ var World = CommonComponent.inherit(
 
 	gameMap: {x: 100, y: 100},
 	update: function(delta){
-		this.shootAllPlayers(delta);
+		this.moveAllPlayers(delta);
+		this.shootAllPlayer(delta);
 	},
-	deltaTime: 0,
-	shootAllPlayers: function(delta){
-		if (this.deltaTime > 1000){ // one time per second;
-			this.deltaTime = 0;
+
+	moveDelta: 0,
+	moveAllPlayers: function(delta){
+		if (this.moveDelta > 1000){ // one time per second;
+			this.moveDelta = 0;
 			var o = this.components.Player
 			for (var key in o){
 				var p = o[key];
 				p.move(randomMovePoint(p));
 			}
 		}
-		this.deltaTime += delta;
+		this.moveDelta += delta;
+	},
+
+	shootDelta: 0,
+	shootAllPlayers: function(delta){ // velocity можно сделать как выстрелы в секунду, и обрабатывать уже на трейте. Попробую позже.
+		if (this.shootDelta > 500){ // one time per halfsecond;
+			var arr = [];
+			this.shootDelta = 0;
+			var o = this.components.Player
+			for (var key in o){
+				var p = o[key];
+				arr.push(p);
+			}
+			var newArr.sort(randomSortingForArray());
+			for (var i = 0; i < newArr.length; i++){
+				this.shoot(newArr[i]);
+			}
+		}
+		this.shootDelta += delta;
 	}
 });
 
 var world = new World({id:"main", name:"DesertHiils", parent:window});
 var playerOne = world.createComponent(Player, {name:"player1"});
 var playerTwo = world.createComponent(Player, {name:"player2"});
-var playerThree = world.createComponent(Player, {name:"player3"});
+var playerThree = world.createComponent(Player, {name:"player3", velocity: 2}); //test
 
 $(document).ready(function(){
-	$("input.pause").attr("onclick", function(){
-		var attribute = $("input.pause").attr("value") === "unpause" ? "pause" : "unpause";
+	$("input.pause").click(function(){
+		var attribute = $("input.pause").attr("value") == "unpause" ? "pause" : "unpause";
 		$("input.pause").attr("value", attribute);
-		return "world.togglePause()";});
+		return world.togglePause();});
 	$("input.start").attr("onclick", "world.startLoop()");
 	$("input.generateBot").attr("onclick", "addBotToWorld()");
 	$("input.removeBot").attr("onclick", "removeBotFromWorld()");
