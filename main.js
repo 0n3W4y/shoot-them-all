@@ -30,24 +30,24 @@ var get_component_in = function(object, className, id){
 };
 
 var randomMovePoint = function(player){
-	var x, y;
+	var pointX, pointY;
 	var p = player;
 	var point = player.currentPoint;
 	if (point === null){ //spawn;
 		var worldMapX = world.gameMap.x;
 		var worldMapY = world.gameMap.y;
-		x = Math.round(Math.random()*worldMapX);
-		y = Math.round(Math.random()*worldMapY);
+		pointX = Math.round(Math.random()*worldMapX);
+		pointY = Math.round(Math.random()*worldMapY);
 	}else{
 		var a = Math.round(Math.random()) ? p.velocity : -p.velocity;
 		var pX = point.x;
 		var pY = point.y;
-		x = pX + a;
-		y = pY + a;
-		x = (x <= 100 && x >= 0) ? x : pX;
-		y = (y <= 100 && y >= 0) ? y : pY;
+		pointX = pX + a;
+		pointY = pY + a;
+		pointX = (pointX <= 100 && pointX >= 0) ? pointX : pX;
+		pointY = (pointY <= 100 && pointY >= 0) ? pointY : pY;
 	}
-	return {"x": x, "y": y};
+	return {x: pointX, y: pointY};
 }
 
 //-------------------------------------------------------------------------------------------------------------------------||
@@ -77,7 +77,7 @@ var CommonShoot = Trait.inherit({
 var CommonWalk = Trait.inherit({
 	__className: "CommonWalk",
 
-	velocity: "1", // 1 step
+	velocity: 1, // 1 step
 	currentPoint: null,
 	move: function(point){
 		this.currentPoint = point;
@@ -206,7 +206,7 @@ var World = CommonComponent.inherit(
 {
 	__className: "World",
 
-	gameMap: {x: 100, y:100},
+	gameMap: {x: 100, y: 100},
 	update: function(delta){
 		this.shootAllPlayers(delta);
 	},
@@ -231,8 +231,8 @@ var playerThree = world.createComponent(Player, {name:"player3"});
 
 $(document).ready(function(){
 	$("input.pause").attr("onclick", function(){
-		var attribute = $(this).attr("value") == "pause" ? "unpause" : "pause";
-		$(this).attr("value", attribute);
+		var attribute = $("input.pause").attr("value") === "unpause" ? "pause" : "unpause";
+		$("input.pause").attr("value", attribute);
 		return "world.togglePause()";});
 	$("input.start").attr("onclick", "world.startLoop()");
 	$("input.generateBot").attr("onclick", "addBotToWorld()");
