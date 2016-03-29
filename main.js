@@ -60,7 +60,7 @@ var randomSortingForArray = function(a, b){
 
 //-------------------------------------------------------------------------------------------------------------------------||
 
-var CommonDeath = Trait.inherit({
+var GameDeath = Trait.inherit({
 	__className: "CommonDeath",
 
 	death: function(){
@@ -68,11 +68,18 @@ var CommonDeath = Trait.inherit({
 	}
 });
 
-var CommonShoot = Trait.inherit({
+var GameShoot = Trait.inherit({
 	__className: "CommonShoot",
 
+
+	shootSpeed: 1000, // 1 times per second
 	shoot: function(target){
 		this.onShoot(target);
+	},
+
+	onShoot: function(target){
+		var rightNow = this.timeToConsole();
+		console.log(rightNow + this.name + " shooted to " + target.name + ", and ...");// + "miss/hit"
 	},
 
 	clip: 12,
@@ -82,27 +89,34 @@ var CommonShoot = Trait.inherit({
 
 	onReload: function(){
 
-	},
-
-	onShoot: function(target){
-		var rightNow = this.timeToConsole();
-		console.log(rightNow + this.name + " shooted to " + target.name + ", and ...");// + "miss/hit"
 	}
 });
 
-var CommonWalk = Trait.inherit({
+var GameWalk = Trait.inherit({
 	__className: "CommonWalk",
 
-	velocity: 1, // 1 step
+	velocity: 1, // 1 - step, 2 - run
+	moveSpeed: 1000, // 1 times per second
+	deltaVelocity: 0,
 	currentPoint: null,
-	move: function(point){
-		this.currentPoint = point;
-		this.onMove();
+	move: function(delta){
+		if (this.deltaVelocity >= this.moveSpeed){
+			var point = randomMovePoint(this);
+			var lastPoint = (this.currentPoint) ? this.currentPoint : null;
+			this.currentPoint = point;
+			this.onMove(lastPoint);
+			this.deltaVelocity = 0;
+		}
+		this.deltaVelocity += delta;
 	},
 
-	onMove: function(){ //log
+	onMove: function(lastPoint){ //log
 		var rightNow = this.timeToConsole();
-		console.log(rightNow + this.name + " was moved to: x=" + this.currentPoint.x + "; y=" + this.currentPoint.y);
+		if (!lastPoint){
+			console.log(rightNow + this.name + " spawned on [x=" + this.currentPoint.x + "; y=" + this.currentPoint.y + "]");
+		}else{
+			console.log(rightNow + this.name + " was moved out from [x=" + lastPoint.x + "; y= " + lastPoint.y +"] -> to: [x=" + this.currentPoint.x + "; y=" + this.currentPoint.y + "]");
+		}
 	}
 });
 
@@ -211,9 +225,9 @@ var CommonComponent = Object.inherit(
 });
 
 var Player = CommonComponent.inherit(
-	CommonShoot,
-	CommonWalk,
-	CommonDeath,
+	GameShoot,
+	GameWalk,
+	GameDeath,
 {
 	__className: "Player",
 
@@ -232,21 +246,15 @@ var World = CommonComponent.inherit(
 		this.shootAllPlayers(delta);
 	},
 
-	moveDelta: 0,
 	moveAllPlayers: function(delta){
-		if (this.moveDelta > 2000){ // one time per second;
-			this.moveDelta = 0;
-			var o = this.components.Player
-			for (var key in o){
-				var p = o[key];
-				p.move(randomMovePoint(p));
-			}
+		var o = this.components.Player
+		for (var key in o){
+			var p = o[key];
+			p.move(delta);
 		}
-		this.moveDelta += delta;
 	},
 
-	shootDelta: 0,
-	shootAllPlayers: function(delta){ // velocity можно сделать как выстрелы в секунду, и обрабатывать уже на трейте. Попробую позже.
+	shootAllPlayers: function(delta){ 
 		if (this.shootDelta > 1500){ // one time per halfsecond;
 			var arr = [];
 			this.shootDelta = 0;
