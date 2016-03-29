@@ -29,38 +29,11 @@ var get_component_in = function(object, className, id){
 	return o;
 };
 
-var randomMovePoint = function(player, delta){
-	var pointX, pointY;
-	var p = player;
-	var point = player.currentPoint;
-	if (point === null){ //spawn;
-		var worldMapX = world.gameMap.x;
-		var worldMapY = world.gameMap.y;
-		pointX = Math.round(Math.random()*worldMapX);
-		pointY = Math.round(Math.random()*worldMapY);
-	}else{
-		var a = Math.round(Math.random()) ? p.velocity : -p.velocity;
-		var b = Math.round(Math.random()) ? p.velocity : -p.velocity;
-		var pX = point.x;
-		var pY = point.y;
-
-		pointX = pX + a/delta;
-		pointY = pY + b/delta;
-		pointX = (pointX <= 100 && pointX >= 0) ? pointX : pX;
-		pointY = (pointY <= 100 && pointY >= 0) ? pointY : pY;
-	}
-	return {x: pointX, y: pointY};
-};
-
-var randomShoot = function(player){
-
-};
-
 var randomSortingForArray = function(a, b){
 	return Math.round(Math.random());
 }
 
-//-------------------------------------------------------------------------------------------------------------------------||
+//-------------------------------------------------------------------------------------------------------------------------
 
 var GameAI = Trait.inherit({
 	__className: "GameAI",
@@ -288,7 +261,6 @@ var CommonComponent = Object.inherit(
 	},
 
 	createComponent: function(classDefenition, data, params){
-		//var classDef = window[classDefenition];
 		var className = classDefenition.prototype.__className;
 		if (!data.parent){
 			data.parent = this;
@@ -362,11 +334,11 @@ var playerTwo = world.createComponent(Player, {name:"player2"});
 var playerThree = world.createComponent(Player, {name:"SpeedRunningBot"}, {velocity: 2}); //test
 
 $(document).ready(function(){
-	$("input.pause").click(function(){
-		var attribute = $("input.pause").attr("value") == "unpause" ? "pause" : "unpause";
-		$("input.pause").attr("value", attribute);
+	$("input#pause").click(function(){
+		var attribute = $(this).attr("value") == "unpause" ? "pause" : "unpause";
+		$(this).attr("value", attribute);
 		return world.togglePause();});
-	$("input.start").attr("onclick", "world.startLoop()");
-	$("input.generateBot").attr("onclick", "addBotToWorld()");
-	$("input.removeBot").attr("onclick", "removeBotFromWorld()");
+	$("input#start").attr("onclick", "world.startLoop()");
+	$("input#add_bot").attr("onclick", "addBotToWorld()");
+	$("input#del_bot").attr("onclick", "removeBotFromWorld()");
 })
