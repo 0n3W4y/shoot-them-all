@@ -205,7 +205,7 @@ var CommonComponent = Object.inherit(
 		var mm = date.getMinutes();
 		var ss = date.getSeconds();
 		var ms = date.getMilliseconds();
-		return "[" + hh + ":" + mm + ":" + ss + ":" + ms + "]"
+		return "[" + hh + ":" + mm + ":" + ss + ":" + ms + "]";
 	}
 
 });
