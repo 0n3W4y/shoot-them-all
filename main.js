@@ -33,16 +33,67 @@ var randomSortingForArray = function(a, b){
 	return Math.round(Math.random());
 };
 
-var pistol = {clip: 10, range: 3, speed: 1};
+var randomHit = function(){
+	return Math.round(Math.random());
+}
 
 //-------------------------------------------------------------------------------------------------------------------------
-var GamePlayerScore = Trait.inherit({
-	__className: "GamePlayerScore",
+var GunStats = Trait.inherit({
+	__className: "GunStats",
+
+	clipMax:null,
+	clip:null,
+	range:null,
+	rateOfFire:null,
+	damage:null
+});
+
+var PlayerStats = Trait.inherit({
+	__className: "PlayerStats",
+
+	hp:null
+})
+var PlayerScore = Trait.inherit({
+	__className: "PlayerScore",
 
 	kills:null,
-	exp:null
+	deaths:null
 
 });
+
+var PlayerInventory = Trait.inherit({
+	__className: "PlayerInventory",
+
+	set_in: function(item){
+		if (item instanceof Object){
+			var copy = Object.assign({}, item);
+			copy.parent = this;
+		}
+		var bag = (!this.bagVault) ? {} : this.bagVault;
+		if (this.bagSlots){
+			var i = 0;
+			for (var key in bag){
+				i++;
+			}
+			bag[i+1] = copy;
+			this.bagSlots--;
+		}
+		console.log( item.name + " put into inventory player: " + this.name );
+	},
+
+	get_in: function(item){
+
+	}
+
+});
+
+var InventoryBag = PlayerInventory.inherit({
+	__className: "InventoryBag",
+
+	bagSlots: 10,
+	bagVault: null
+
+})
 
 var GameAI = Trait.inherit({
 	__className: "GameAI",
@@ -105,7 +156,7 @@ var GameAI = Trait.inherit({
 			var allPlayers = this.findAllPlayers();
 			this.myEnemy = this.findClosestEnemy(allPlayers);
 		};
-		
+
 		var path = this.findPath(this.myEnemy);
 		this.move(delta, path);
 	}
@@ -145,6 +196,7 @@ var GameShoot = Trait.inherit({
 	__className: "GameShoot",
 
 	shoot: function(target){
+		this.clip--;
 		this.onShoot(target);
 	},
 
@@ -158,7 +210,6 @@ var ShootReload = GameShoot.inherit({
 	__className: "ShootReload",
 
 	reload: function(){
-		this.clip = 10; //temporary
 		this.onReload();
 	},
 
@@ -199,9 +250,6 @@ var GameWalk = Trait.inherit({
 
 		if (positionX || positionY){
 			this.onMove();
-		}
-		if (Math.abs(this.currentPosition.x - pointX) > 1 || Math.abs(this.currentPosition.y - pointY) > 1){
-			console.log( "Error. Name: " + this.name + "; Current Pos: x=" + this.currentPosition.x + "; Current Point: x=" + pointX + "; Current Pos y=" + this.currentPosition.y + "; Current Point y=" + pointY)
 		}
 	},
 
@@ -302,7 +350,6 @@ var CommonComponent = Object.inherit(
 	createId: function(classDefenition){ // спизжено, нужно разобраться)
 		return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
 			var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
-			console.log("id created");
 			return v.toString(16);
 		});
 	},
@@ -319,12 +366,23 @@ var CommonComponent = Object.inherit(
 
 });
 
+var Gun = CommonComponent.inherit(
+	GunStats,
+{
+	__className: "Gun",
+
+	name: "gun"
+});
+
 var Player = CommonComponent.inherit(
 	GameShoot,
 	GameWalk,
 	GameDeath,
 	GameAI,
 	GameSpawn,
+	PlayerScore,
+	PlayerInventory,
+	PlayerStats,
 {
 	__className: "Player",
 
@@ -353,10 +411,16 @@ var World = CommonComponent.inherit(
 });
 
 var world = new World({id:"main", name:"DesertHiils", parent:window});
-var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"});
-var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75});
-var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25});
-var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5});
+var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {hp: 2});
+var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2});
+var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2});
+var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2});
+var gun = world.createComponent(Gun, {name: "Small Gun"}, {clip: 6, rateOfFire: 1, range: 4, damage: 1});
+playerOne.set_in(gun);
+playerTwo.set_in(gun);
+playerThree.set_in(gun);
+playerFour.set_in(gun);
+delete gun; //now wroking;
 
 $(document).ready(function(){
 	$("input#pause").click(function(){
