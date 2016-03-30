@@ -31,27 +31,35 @@ var get_component_in = function(object, className, id){
 
 var randomSortingForArray = function(a, b){
 	return Math.round(Math.random());
-}
+};
+
+var pistol = {clip: 10, range: 3, speed: 1};
 
 //-------------------------------------------------------------------------------------------------------------------------
+var GamePlayerScore = Trait.inherit({
+	__className: "GamePlayerScore",
+
+	kills:null,
+	exp:null
+
+});
 
 var GameAI = Trait.inherit({
 	__className: "GameAI",
 
+	myEnemy: null,
 	findClosestEnemy: function(players){
 		var allEnemies = players;
 		var enemyPoints = [];
 		var result = [];
 		for (var i = 0; i < allEnemies.length; i++){
 			var a = allEnemies[i];
-			enemyPoints.push(a.currentPoint);
+			enemyPoints.push(a.currentPosition);
 		}
 		for (var j = 0; j < enemyPoints.length; j++){
 			var b = enemyPoints[j];
-			var distanceX = b.x - this.currentPoint.x;
-			var distanceY = b.y - this.currentPoint.y;
-			distanceX = (distanceX > 0) ? distanceX : -distanceX;
-			distanceY = (distanceY > 0) ? distanceY : -distanceY;
+			var distanceX = Math.abs(b.x - this.currentPosition.x);
+			var distanceY = Math.abs(b.y - this.currentPosition.y);
 			var distance = Math.sqrt(Math.pow(distanceX, 2) + Math.pow(distanceY, 2));
 			result.push(distance);
 		}
@@ -73,15 +81,15 @@ var GameAI = Trait.inherit({
 	},
 
 	findPath: function(enemy){
-		var enemyPoint = enemy.currentPoint;
-		var positionX = Math.round(this.currentPoint.x) - Math.round(enemyPoint.x);
-		var positionY = this.currentPoint.y - enemyPoint.y;
+		var enemyPosition = enemy.currentPosition;
+		var positionX = this.currentPosition.x - enemyPosition.x;
+		var positionY = this.currentPosition.y - enemyPosition.y;
 		var stepX = (positionX > 0) ? -1 : 1;
-		if ( Math.round(positionX) == 0){
+		if ( positionX == 0){
 			stepX = 0;
 		}
 		var stepY = (positionY > 0) ? -1 : 1;
-		if ( Math.round(positionY) == 0){
+		if ( positionY == 0){
 			stepY = 0;
 		}
 		return [stepX, stepY];
@@ -92,15 +100,13 @@ var GameAI = Trait.inherit({
 			this.spawn();
 			return;
 		};
-
-		var allPlayers = this.findAllPlayers();
-		if (allPlayers){
-			var enemy = this.findClosestEnemy(allPlayers);
-			var path = this.findPath(enemy);
-		}else{
-			return;
+		
+		if (!this.myEnemy){
+			var allPlayers = this.findAllPlayers();
+			this.myEnemy = this.findClosestEnemy(allPlayers);
 		};
-
+		
+		var path = this.findPath(this.myEnemy);
 		this.move(delta, path);
 	}
 
@@ -116,6 +122,7 @@ var GameSpawn = Trait.inherit({
 		var pointX = Math.round(Math.random()*worldMapX);
 		var pointY = Math.round(Math.random()*worldMapY);
 		this.currentPoint = {x: pointX, y: pointY};
+		this.currentPosition = {x: pointX, y: pointY};
 		this.onSpawn();
 		return;
 	},
@@ -137,8 +144,6 @@ var GameDeath = Trait.inherit({
 var GameShoot = Trait.inherit({
 	__className: "GameShoot",
 
-
-	shootSpeed: 1000, // 1 times per second
 	shoot: function(target){
 		this.onShoot(target);
 	},
@@ -146,25 +151,30 @@ var GameShoot = Trait.inherit({
 	onShoot: function(target){
 		var rightNow = this.timeToConsole();
 		console.log(rightNow + this.name + " shooted to " + target.name + ", and miss/hit* ");
-	},
+	}
+});
 
-	clip: 12,
+var ShootReload = GameShoot.inherit({
+	__className: "ShootReload",
+
 	reload: function(){
-
+		this.clip = 10; //temporary
+		this.onReload();
 	},
 
 	onReload: function(){
-
+		var rightNow = this.timeToConsole();
+		console.log(rightNow + this.name + " reloading his weapon");
 	}
-});
+})
 
 var GameWalk = Trait.inherit({
 	__className: "GameWalk",
 
 	velocity: 1, // 1 - step, 2 - run
-	moveSpeedLog: 2000, 
-	deltaVelocity: 0,
 	currentPoint: null,
+	currentPosition: null,
+
 	move: function(delta, path){
 		var dirX = path[0];
 		var dirY = path[1];
@@ -174,16 +184,30 @@ var GameWalk = Trait.inherit({
 		var pointX = pX + dirX*a;
 		var pointY = pY + dirY*a;
 		this.currentPoint = {x: pointX, y: pointY};
-		if (this.deltaVelocity >= this.moveSpeedLog){
-			this.onMove();
-			this.deltaVelocity = 0;
+		var difX = Math.abs(this.currentPosition.x - pointX);
+		var difY = Math.abs(this.currentPosition.y - pointY);
+		var positionX = positionY = null;
+		var dif = a*2;
+		if (difX > 1 - dif && difX < 1 + dif){
+			positionX = Math.round(pointX);
+			this.currentPosition.x = positionX;
 		}
-		this.deltaVelocity += delta;
+		if (difY > 1 - dif && difY < 1 + dif){
+			positionY = Math.round(pointY);
+			this.currentPosition.y = positionY;
+		}
+
+		if (positionX || positionY){
+			this.onMove();
+		}
+		if (Math.abs(this.currentPosition.x - pointX) > 1 || Math.abs(this.currentPosition.y - pointY) > 1){
+			console.log( "Error. Name: " + this.name + "; Current Pos: x=" + this.currentPosition.x + "; Current Point: x=" + pointX + "; Current Pos y=" + this.currentPosition.y + "; Current Point y=" + pointY)
+		}
 	},
 
 	onMove: function(){ //log
 		var rightNow = this.timeToConsole();
-		console.log(rightNow + this.name + " was moved out to: [x=" + Math.round(this.currentPoint.x) + "; y=" + Math.round(this.currentPoint.y) + "]");
+		console.log(rightNow + this.name + " was moved in to: [x=" + this.currentPosition.x + "; y=" + this.currentPosition.y + "]");
 	}
 });
 
@@ -228,8 +252,8 @@ var CommonTick = Trait.inherit({
 		}
 		var time = this.now();
 		var delta = time - this.lastTick;
-		if (delta > 64) { // ~2*1000/this.fps;
-			delta = 32; // ~1000/this.fps;
+		if (delta > 66) { // ~2*1000/this.fps;
+			delta = 33; // ~1000/this.fps;
 		}
 		this.update(delta);
 		this.lastTick = time;
@@ -319,7 +343,7 @@ var World = CommonComponent.inherit(
 	},
 
 	runAI: function(delta){
-		var o = this.components.Player
+		var o = this.components.Player;
 		for (var key in o){
 			var p = o[key];
 			p.aiLogic(delta);
@@ -329,9 +353,10 @@ var World = CommonComponent.inherit(
 });
 
 var world = new World({id:"main", name:"DesertHiils", parent:window});
-var playerOne = world.createComponent(Player, {name:"player1"});
-var playerTwo = world.createComponent(Player, {name:"player2"});
-var playerThree = world.createComponent(Player, {name:"SpeedRunningBot"}, {velocity: 2}); //test
+var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"});
+var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75});
+var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25});
+var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5});
 
 $(document).ready(function(){
 	$("input#pause").click(function(){
