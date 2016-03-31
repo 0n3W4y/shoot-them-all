@@ -35,6 +35,20 @@ var randomSortingForArray = function(a, b){
 
 var randomHit = function(){
 	return Math.round(Math.random());
+};
+
+var giveGunToAllPlayers = function(){
+	var a = world.components.Gun
+	for (var i in a){
+		var b = a[i];
+	};
+
+	var o = world.components.Player;
+	for (var key in o){
+		var p = o[key];
+		p.gun = Object.assign({}, b);
+		console.log(p.name + " now have a " + p.gun.name);
+	}
 }
 
 //-------------------------------------------------------------------------------------------------------------------------
@@ -57,43 +71,12 @@ var PlayerScore = Trait.inherit({
 	__className: "PlayerScore",
 
 	kills:null,
-	deaths:null
+	deaths:null,
+	shoots:null,
+	hits:null,
+	steps:null
 
 });
-
-var PlayerInventory = Trait.inherit({
-	__className: "PlayerInventory",
-
-	set_in: function(item){
-		if (item instanceof Object){
-			var copy = Object.assign({}, item);
-			copy.parent = this;
-		}
-		var bag = (!this.bagVault) ? {} : this.bagVault;
-		if (this.bagSlots){
-			var i = 0;
-			for (var key in bag){
-				i++;
-			}
-			bag[i+1] = copy;
-			this.bagSlots--;
-		}
-		console.log( item.name + " put into inventory player: " + this.name );
-	},
-
-	get_in: function(item){
-
-	}
-
-});
-
-var InventoryBag = PlayerInventory.inherit({
-	__className: "InventoryBag",
-
-	bagSlots: 10,
-	bagVault: null
-
-})
 
 var GameAI = Trait.inherit({
 	__className: "GameAI",
@@ -131,6 +114,18 @@ var GameAI = Trait.inherit({
 		return enemyArr;
 	},
 
+	findAlivePlayers: function(players){
+		var o = players;
+		var result = [];
+		for (var i = 0; i < o.length; i++){
+			var p = o[i];
+			if (p.hp > 0){
+				result.push(p);
+			}
+		}
+		return result;
+	},
+
 	findPath: function(enemy){
 		var enemyPosition = enemy.currentPosition;
 		var positionX = this.currentPosition.x - enemyPosition.x;
@@ -146,19 +141,56 @@ var GameAI = Trait.inherit({
 		return [stepX, stepY];
 	},
 
+	canShootToEnemy: function(){
+		var distanceX = Math.abs(this.currentPosition.x - this.myEnemy.currentPosition.x);
+		var distanceY = Math.abs(this.currentPosition.y - this.myEnemy.currentPosition.y);
+		var shootRange = this.gun.range;
+		var distance = Math.min(distanceX, distanceY);
+		if (distance <= shootRange){
+			return true;
+		}
+		return false;
+	},
+
+	needReload: function(){
+		var clip = this.gun.clip;
+		if (clip == 0){
+			return true;
+		}
+		return false;
+	},
+
 	aiLogic: function(delta){
+		if (this.hp <= 0){
+			return;
+		}
 		if (!this.currentPoint){
 			this.spawn();
 			return;
 		};
-		
+
 		if (!this.myEnemy){
 			var allPlayers = this.findAllPlayers();
-			this.myEnemy = this.findClosestEnemy(allPlayers);
-		};
+			var alivePlayers = this.findAlivePlayers(allPlayers);
+			if (alivePlayers.length > 0){
+				this.myEnemy = this.findClosestEnemy(alivePlayers);
+			}else{
+				this.parent.stopLoop();
+				console.log("Game ended");
+				return;
+			}
+		}
 
 		var path = this.findPath(this.myEnemy);
-		this.move(delta, path);
+		if (this.canShootToEnemy()){
+			if (this.needReload()){
+				this.reload();
+				return;
+			}
+			this.shoot(delta, this.myEnemy);
+			return;
+		}
+		this.move(delta ,path);
 	}
 
 
@@ -175,6 +207,7 @@ var GameSpawn = Trait.inherit({
 		this.currentPoint = {x: pointX, y: pointY};
 		this.currentPosition = {x: pointX, y: pointY};
 		this.onSpawn();
+		this.shootingDelta = this.gun.rateOfFire*1000;
 		return;
 	},
 
@@ -195,21 +228,41 @@ var GameDeath = Trait.inherit({
 var GameShoot = Trait.inherit({
 	__className: "GameShoot",
 
-	shoot: function(target){
-		this.clip--;
-		this.onShoot(target);
+	shootingDelta: null,
+	shoot: function(delta, target){
+		var shootingSpeed = this.gun.rateOfFire*1000;
+		if (this.shootingDelta >= shootingSpeed){
+			this.gun.clip--;
+			var missOrHit = randomHit();
+			if (missOrHit){
+				target.hp -= gun.damage;
+				this.hits++;
+			}
+			if (!target.hp){
+				this.myEnemy = null;
+				target.deaths++;
+			}
+			missOrHit = (missOrHit) ? "Hit" : "Miss";
+			this.shootingDelta = 0;
+			this.shoots++;
+			this.onShoot(target, missOrHit);
+		}else{
+			this.shootingDelta += delta;
+		}
+
 	},
 
-	onShoot: function(target){
+	onShoot: function(target, missOrHit){
 		var rightNow = this.timeToConsole();
-		console.log(rightNow + this.name + " shooted to " + target.name + ", and miss/hit* ");
+		console.log(rightNow + this.name + " shooted to " + target.name + ", and " + missOrHit);
 	}
 });
 
-var ShootReload = GameShoot.inherit({
-	__className: "ShootReload",
+var GameReload = Trait.inherit({
+	__className: "GameReload",
 
 	reload: function(){
+		this.gun.clip = this.gun.maxClip;
 		this.onReload();
 	},
 
@@ -250,7 +303,10 @@ var GameWalk = Trait.inherit({
 
 		if (positionX || positionY){
 			this.onMove();
+			this.steps++;
+			this.shootingDelta = this.gun.rateOfFire*1000;
 		}
+		
 	},
 
 	onMove: function(){ //log
@@ -277,6 +333,7 @@ var CommonTick = Trait.inherit({
 		if (this.loopId) {
 			clearInterval(this.loopId);
 			this.loopId = null;
+			console.log("Game stopped");
 		}
 	},
 
@@ -376,12 +433,12 @@ var Gun = CommonComponent.inherit(
 
 var Player = CommonComponent.inherit(
 	GameShoot,
+	GameReload,
 	GameWalk,
 	GameDeath,
 	GameAI,
 	GameSpawn,
 	PlayerScore,
-	PlayerInventory,
 	PlayerStats,
 {
 	__className: "Player",
@@ -415,12 +472,8 @@ var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {hp: 2}
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2});
-var gun = world.createComponent(Gun, {name: "Small Gun"}, {clip: 6, rateOfFire: 1, range: 4, damage: 1});
-playerOne.set_in(gun);
-playerTwo.set_in(gun);
-playerThree.set_in(gun);
-playerFour.set_in(gun);
-delete gun; //now wroking;
+var gun = world.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
+giveGunToAllPlayers();
 
 $(document).ready(function(){
 	$("input#pause").click(function(){
