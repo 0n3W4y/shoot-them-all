@@ -455,6 +455,7 @@ var World = CommonComponent.inherit(
 	gameMap: {x: 100, y: 100},
 	update: function(delta){
 		this.runAI(delta);
+		this.gameresult();
 	},
 
 	runAI: function(delta){
@@ -463,6 +464,9 @@ var World = CommonComponent.inherit(
 			var p = o[key];
 			p.aiLogic(delta);
 		}
+	}
+	gameResult: function(){
+
 	}
 
 });

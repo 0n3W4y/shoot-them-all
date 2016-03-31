@@ -1,0 +1,27 @@
+#infoBlock{
+	display:block;
+	position:relative;
+	float:left;
+	min-width:200px;
+	min-height:400px;
+	background: #bbb;
+	margin-left:10px;
+	margin-right:10px;
+	padding:10px;
+	resize:none;
+	border-color: black;
+  	border-style: outset;
+	border-top-right-radius: 8px;
+ 	border-top-left-radius: 8px;
+  	border-bottom-left-radius: 8px;
+  	border-bottom-right-radius: 8px;
+}
+#mainButtons{
+	display:block;
+	position:relative;
+	float:top;
+}
+#avatar{
+	display:block;
+	position:static;
+}
