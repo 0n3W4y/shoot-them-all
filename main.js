@@ -49,7 +49,7 @@ var giveGunToAllPlayers = function(){
 		p.gun = Object.assign({}, b);
 		console.log(p.name + " now have a " + p.gun.name);
 	}
-}
+};
 
 //-------------------------------------------------------------------------------------------------------------------------
 var GunStats = Trait.inherit({
@@ -386,6 +386,7 @@ var CommonComponent = Object.inherit(
 				this[key] = params[key];
 			}
 		}
+
 		console.log("commonInit done.");
 	},
 
@@ -396,6 +397,9 @@ var CommonComponent = Object.inherit(
 		}
 		var component = new classDefenition(data, params);
 		set_component_in(this.components, className, component.id, component);
+		if (className == "Player"){
+			this.fillUserIface(component);
+		}
 		console.log("create component done, created: " + className + ", with name:" + data.name);
 		return component;
 	},
@@ -419,6 +423,10 @@ var CommonComponent = Object.inherit(
 		var ss = date.getSeconds();
 		var ms = date.getMilliseconds();
 		return "[" + hh + ":" + mm + ":" + ss + ":" + ms + "] ";
+	},
+
+	fillUserIface: function(data){
+
 	}
 
 });
@@ -453,9 +461,10 @@ var World = CommonComponent.inherit(
 	__className: "World",
 
 	gameMap: {x: 100, y: 100},
+	botsInGame: 0,
 	update: function(delta){
 		this.runAI(delta);
-		this.gameresult();
+		this.gameResult();
 	},
 
 	runAI: function(delta){
@@ -464,9 +473,23 @@ var World = CommonComponent.inherit(
 			var p = o[key];
 			p.aiLogic(delta);
 		}
-	}
+	},
+
 	gameResult: function(){
 
+	},
+
+	addBotToWorld: function(data){
+		if (!this.botsInGame){
+			this.botsInGame = 1;
+			data.userInterfaceId = "robot1"
+			return; 
+		}
+		var newid = "robot" + this.botsInGame;
+		$("div#infoBlock").clone().attr("id", newid).appendTo("div#mainStatBlock");
+		this.botsInGame++;
+		data.userInterfaceId = newid;
+		return;
 	}
 
 });
