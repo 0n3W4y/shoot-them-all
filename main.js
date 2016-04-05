@@ -1,12 +1,11 @@
 var set_component_in = function(object, className, id, component){ 
-	var p = object;
-	var f = id;
-	for (var i = 1; i < arguments.length - 2; i++){
-		var a = arguments[i];
-		if (p[a] === undefined){
-			p[a] = {};
+	var p = object,
+	f = id,
+	s = className;
+	if (p[s] === undefined){
+			p[s] = {};
 		}
-		p = p[a];
+		p = p[s];
 	}
 	p[f] = component;
 	return;
@@ -52,7 +51,8 @@ var giveGunToAllPlayers = function(){
 };
 
 //-------------------------------------------------------------------------------------------------------------------------
-var GunStats = Trait.inherit({
+
+var WeaponnStats = Trait.inherit({
 	__className: "GunStats",
 
 	clipMax:null,
@@ -60,6 +60,186 @@ var GunStats = Trait.inherit({
 	range:null,
 	rateOfFire:null,
 	damage:null
+});
+
+/*
+ попытка сделать инвентарь в виде собрания компонентов, и присвоения им свойств, таких как inBag = true; inBelt = true; inEquip = true, получилось, но 
+ возникли другие сложности, например как в поиске нужного предмета или даже замене существующего предмета на новый. Сложности заключаются в том, 
+ что функция слишком много времени тратит на поиск в этом огромном объекте components, решил все же создать инвентарь в виде мелких объектов 
+ и коопировать туда ссылки, из главного объекта всех компонентов игрока.
+
+var PlayerInventory = Trait.inherit({
+	__className: "PlayerInventory",
+
+	set_item_in: function(pos, item){ //Bag, belt, equip
+		var place = "setTo" + pos.charAt(0).toUpperCase() + str.slice(1);
+		var func = this[place];
+		func(item);
+	},
+
+	get_item_in: function(pos, item){ //bag, belt, equip
+
+	}
+
+});
+
+var InventoryBag = Trait.inherit({
+	__className: "InventoryBag",
+
+	bagMaxSlots:null,
+	bagCurrentSlots:null,
+
+	setToBag: function(item){
+		if (this.bagCurrentSlots > 0){
+			this.bagCurrentSlots--;
+			item.inBag = true;
+		}else{
+			return false;
+		}
+		return item;
+	}
+
+});
+
+var InventoryBelt = Trait.inherit({
+	__className: "InventoryBelt",
+
+	beltMaxSlots:null,
+	beltCurrentSlots:null,
+
+	setToBelt: function(item){
+		if (this.beltCurrentSlots > 0){
+			this.beltCurrentSlots--;
+			item.inBelt = true;
+		}else{
+			//this.replace("belt", item);
+		}
+		return item;
+	}
+
+});
+
+var InventoryEquip = Trait.inherit({
+	__className: "InventoryEquip",
+
+	setToEquip: function(item){
+		if (item.place){
+			for (var key in this.components.)
+		}
+	}
+
+});
+*/
+
+var PlayerInventory = Trait.inherit({
+	__className: "PlayerInventory",
+
+	set_in:function (pos, item){
+		var setter = "setTo" + pos.charAt(0).toUpperCase() + pos.slice(1);
+		var func = this[setter];
+		fucn(item);
+	}
+
+});
+
+var InventoryBag = Trait.inherit({
+	__className: "InventoryBag",
+
+	bagMaxSlots:null,
+	bagCurrentSlots:null,
+	bagVault:{},
+
+	setToBag:function (item){
+		if (this.bagCurrentSlots > 0){
+			// if collectble ... код
+			this.bagCurrentSlots--;
+			item.inBag = true;
+			if (this.bagMaxSlots == this.bagCurrentSlots){
+				this.bagVault.slot1 = item;
+				return;
+			}
+			var num = 1;
+			for (var key in this.bagVault){
+				if (this.bagVault[key] === undefined){
+					this.bagVault[key] = item;
+					return;
+				}
+				num++;
+			}
+			num = "slot" + num;
+			this.bagVault[num] = item;
+		}
+	}
+
+});
+
+var InventoryBelt = Trait.inherit({
+	__className: "InventoryBelt",
+
+	beltMaxSlots:null,
+	beltCurrentSlots:null,
+	beltVault:{},
+
+	setToBelt: function(item){
+		if (this.beltCurrentSlots > 0){
+			// if collectble ... код
+			this.beltCurrentSlots--;
+			item.inBelt = true;
+			item.inBag = false;
+			this.bagCurrentSlots++;
+			if (this.beltMaxSlots == this.beltCurrentSlots){
+				this.beltVault.slot1 = item;
+				return;
+			}
+			var num = 1;
+			for (var key in this.beltVault){
+				if (this.beltVault[key] === undefined){
+					this.beltVault[key] = item;
+					return;
+				}
+				num++;
+			}
+			num = "slot" + num;
+			this.bagVault[num] = item;
+		}
+	}
+
+});
+
+var InventoryEquip = Trait.inherit({
+	__className: "InventoryEquip",
+
+	equipVault:{
+		head:null,
+		shoulders:null,
+		hands:null,
+		torso:null,
+		belt:null,
+		pants:null,
+		boots:null,
+		neck:null,
+		ringOne:null,
+		ringTwo:null,
+		rightHand:null,
+		leftHand:null
+	},
+
+	setToEquip: function(item){ // предположим класс объекта armor и weapon будут иметь схжие свойства, такие как equipPlace или что-то подобное, по нему буду искать и "одевать" предмет на игрока.
+		var position = (item.equipPlace) ? item.equipPlace : return; // !!!!!!!!!!!!!!!
+		var equipPos = this.equipVault.position;
+		if (!equipPos){
+			equipPos = item;
+			item.inEquip = true;
+			item.inBag = false;
+		}else{
+			equipPos.inEquip = false;
+			equipPos.inBag = true;
+			equipPos = item;
+		}
+		if (item.twoHanded){
+			this.equipVault.leftHand = item; // or block, false, or s0m3thing else...
+		}
+	}
 });
 
 var PlayerStats = Trait.inherit({
@@ -175,18 +355,18 @@ var GameAI = Trait.inherit({
 			if (alivePlayers.length > 0){
 				this.myEnemy = this.findClosestEnemy(alivePlayers);
 			}else{
-				this.parent.stopLoop();
+				this.parent.stopLoop(); // временное окончание
 				console.log("Game ended");
 				return;
 			}
 		}
 
 		var path = this.findPath(this.myEnemy);
+		if (this.needReload()){
+			this.reload();
+			return;
+		}
 		if (this.canShootToEnemy()){
-			if (this.needReload()){
-				this.reload();
-				return;
-			}
 			this.shoot(delta, this.myEnemy);
 			return;
 		}
@@ -365,6 +545,26 @@ var CommonTick = Trait.inherit({
 	}
 });
 
+var CommonBotControl = Trait.inherit({
+	__className: "CommonbotControl",
+
+	bots:null,
+
+	addBotToWorld: function(data){
+		if (!this.botsInGame){
+			this.botsInGame = 1;
+			data.userInterfaceId = "robot1"
+			return; 
+		}
+		var newid = "robot" + this.botsInGame;
+		$("div#infoBlock").clone().attr("id", newid).appendTo("div#mainStatBlock");
+		this.botsInGame++;
+		data.userInterfaceId = newid;
+		return;
+	}
+
+});
+
 var CommonComponent = Object.inherit(
 
 {
@@ -421,8 +621,7 @@ var CommonComponent = Object.inherit(
 		var hh = date.getHours();
 		var mm = date.getMinutes();
 		var ss = date.getSeconds();
-		var ms = date.getMilliseconds();
-		return "[" + hh + ":" + mm + ":" + ss + ":" + ms + "] ";
+		return "[" + hh + ":" + mm + ":" + ss + "] ";
 	},
 
 	fillUserIface: function(data){
@@ -432,7 +631,7 @@ var CommonComponent = Object.inherit(
 });
 
 var Gun = CommonComponent.inherit(
-	GunStats,
+	WeaponStats,
 {
 	__className: "Gun",
 
@@ -457,6 +656,7 @@ var Player = CommonComponent.inherit(
 
 var World = CommonComponent.inherit(
 	CommonTick,
+	CommonBotControl,
 {
 	__className: "World",
 
@@ -477,19 +677,6 @@ var World = CommonComponent.inherit(
 
 	gameResult: function(){
 
-	},
-
-	addBotToWorld: function(data){
-		if (!this.botsInGame){
-			this.botsInGame = 1;
-			data.userInterfaceId = "robot1"
-			return; 
-		}
-		var newid = "robot" + this.botsInGame;
-		$("div#infoBlock").clone().attr("id", newid).appendTo("div#mainStatBlock");
-		this.botsInGame++;
-		data.userInterfaceId = newid;
-		return;
 	}
 
 });
@@ -499,8 +686,10 @@ var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {hp: 2}
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2});
-var gun = world.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
-giveGunToAllPlayers();
+playerOne.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
+playerTwo.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
+playerThree.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
+playerFour.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
 
 $(document).ready(function(){
 	$("input#pause").click(function(){
@@ -508,6 +697,6 @@ $(document).ready(function(){
 		$(this).attr("value", attribute);
 		return world.togglePause();});
 	$("input#start").attr("onclick", "world.startLoop()");
-	$("input#add_bot").attr("onclick", "addBotToWorld()");
+	$("input#add_bot").attr("onclick", "world.addBotToWorld()");
 	$("input#del_bot").attr("onclick", "removeBotFromWorld()");
 })
