@@ -152,10 +152,18 @@ var PlayerInventory = Trait.inherit({
 		}
 	},
 
-	set_in:function (pos, item){
-		var setter = "setTo" + pos.charAt(0).toUpperCase() + pos.slice(1).toLowerCase();
+	replaceItem: function ( newPos, item){
+		var setter = "setTo" + newPos.charAt(0).toUpperCase() + newPos.slice(1).toLowerCase();
 		var func = this[setter];
-		func.apply(this, [item]);
+		return func.apply(this, [item]);
+	},
+
+	lootObject: function(item){
+		var canPickItem = this.replaceItem("Bag", item);
+		if (!canPickItem){
+			return false;
+		}
+		return item;
 	}
 
 });
@@ -186,7 +194,10 @@ var InventoryBag = Trait.inherit({
 			}
 			num = "slot" + num;
 			this.bagVault[num] = item;
+		}else{
+			return false;
 		}
+		return item;
 	}
 
 });
@@ -257,7 +268,7 @@ var InventoryEquip = Trait.inherit({
 			equipPos.inBag = true;
 			equipPos = item;
 		}
-		if (item.twoHanded){
+		if (item.twoHanded){ //либо блокируем либо дублируем дуручное оружие в левую руку, я задублировал
 			this.equipVault.leftHand = item; // or block, false, or s0m3thing else...
 		}
 	}
