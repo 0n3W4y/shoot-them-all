@@ -3,10 +3,9 @@ var set_component_in = function(object, className, id, component){
 	f = id,
 	s = className;
 	if (p[s] === undefined){
-			p[s] = {};
-		}
-		p = p[s];
+		p[s] = {};
 	}
+	p = p[s];
 	p[f] = component;
 	return;
 };
@@ -52,14 +51,15 @@ var giveGunToAllPlayers = function(){
 
 //-------------------------------------------------------------------------------------------------------------------------
 
-var WeaponnStats = Trait.inherit({
-	__className: "GunStats",
+var WeaponStats = Trait.inherit({
+	__className: "WeaponStats",
 
 	clipMax:null,
 	clip:null,
 	range:null,
 	rateOfFire:null,
-	damage:null
+	damage:null,
+	twoHanded:false,
 });
 
 /*
@@ -134,10 +134,28 @@ var InventoryEquip = Trait.inherit({
 var PlayerInventory = Trait.inherit({
 	__className: "PlayerInventory",
 
+	initInventory: function(data){
+		if(data){
+			this.bagMaxSlots = data.bagMaxSlots || 10;
+			this.bagCurrentSlots = this.bagMaxSlots;
+			this.bagVault = {};
+			this.beltMaxSlots = data.beltMaxSlots || 5;
+			this.beltCurrentSlots = this.beltMaxSlots;
+			this.beltVault = {};
+		}else{ // default values
+			this.bagMaxSlots = 10;
+			this.bagCurrentSlots = this.bagMaxSlots;
+			this.bagVault = {};
+			this.beltMaxSlots = 5;
+			this.beltCurrentSlots = this.beltMaxSlots;
+			this.beltVault = {};
+		}
+	},
+
 	set_in:function (pos, item){
-		var setter = "setTo" + pos.charAt(0).toUpperCase() + pos.slice(1);
+		var setter = "setTo" + pos.charAt(0).toUpperCase() + pos.slice(1).toLowerCase();
 		var func = this[setter];
-		fucn(item);
+		func.apply(this, [item]);
 	}
 
 });
@@ -147,7 +165,7 @@ var InventoryBag = Trait.inherit({
 
 	bagMaxSlots:null,
 	bagCurrentSlots:null,
-	bagVault:{},
+	bagVault:null,
 
 	setToBag:function (item){
 		if (this.bagCurrentSlots > 0){
@@ -178,7 +196,7 @@ var InventoryBelt = Trait.inherit({
 
 	beltMaxSlots:null,
 	beltCurrentSlots:null,
-	beltVault:{},
+	beltVault:null,
 
 	setToBelt: function(item){
 		if (this.beltCurrentSlots > 0){
@@ -225,7 +243,10 @@ var InventoryEquip = Trait.inherit({
 	},
 
 	setToEquip: function(item){ // предположим класс объекта armor и weapon будут иметь схжие свойства, такие как equipPlace или что-то подобное, по нему буду искать и "одевать" предмет на игрока.
-		var position = (item.equipPlace) ? item.equipPlace : return; // !!!!!!!!!!!!!!!
+		var position = (item.equipPlace) ? item.equipPlace : null; // !!!!!!!!!!!!!!!
+		if (!position){
+			return;
+		}
 		var equipPos = this.equipVault.position;
 		if (!equipPos){
 			equipPos = item;
@@ -599,6 +620,7 @@ var CommonComponent = Object.inherit(
 		set_component_in(this.components, className, component.id, component);
 		if (className == "Player"){
 			this.fillUserIface(component);
+			component.initInventory(data.inventory);
 		}
 		console.log("create component done, created: " + className + ", with name:" + data.name);
 		return component;
@@ -647,6 +669,10 @@ var Player = CommonComponent.inherit(
 	GameSpawn,
 	PlayerScore,
 	PlayerStats,
+	PlayerInventory,
+	InventoryEquip,
+	InventoryBelt,
+	InventoryBag,
 {
 	__className: "Player",
 
@@ -682,11 +708,11 @@ var World = CommonComponent.inherit(
 });
 
 var world = new World({id:"main", name:"DesertHiils", parent:window});
-var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {hp: 2});
+var playerOne = world.createComponent(Player, {name:"NormalWalkingBot", inventory:{bagMaxSlots:15}}, {hp: 2});
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2});
-playerOne.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
+playerOne.set_in("Bag", playerOne.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1}) );
 playerTwo.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
 playerThree.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
 playerFour.createComponent(Gun, {name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1});
