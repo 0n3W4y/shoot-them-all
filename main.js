@@ -84,8 +84,10 @@ var PlayerInventory = Trait.inherit({
 
 	lootObject: function(item){
 		if (this.bagCurrentSlots > 0){
-			var clone = $.extend(true, {}, item);
 			var classDefinition = item.__proto__.constructor;
+			var cloneData = $.extend({}, item);
+			var cloneExtras= $.extend(true, {}, item);
+			clone.parent = null;
 			var newItem = this.createComponent(classDefinition, clone);
 			this.replaceItem("bag", newItem);
 			console.log(clone.name + " obtained correctly into " + this.name + " bag.");
@@ -307,7 +309,7 @@ var GameAI = Trait.inherit({
 	canShootToEnemy: function(){
 		var distanceX = Math.abs(this.currentPosition.x - this.myEnemy.currentPosition.x);
 		var distanceY = Math.abs(this.currentPosition.y - this.myEnemy.currentPosition.y);
-		var shootRange = this.gun.range;
+		var shootRange = this.equipVault.rightHand.range;
 		var distance = Math.min(distanceX, distanceY);
 		if (distance <= shootRange){
 			return true;
@@ -316,7 +318,7 @@ var GameAI = Trait.inherit({
 	},
 
 	needReload: function(){
-		var clip = this.gun.clip;
+		var clip = this.equipVault.rightHand.clip;
 		if (clip == 0){
 			return true;
 		}
@@ -370,7 +372,7 @@ var GameSpawn = Trait.inherit({
 		this.currentPoint = {x: pointX, y: pointY};
 		this.currentPosition = {x: pointX, y: pointY};
 		this.onSpawn();
-		this.shootingDelta = this.equipValut.rightHand.rateOfFire*1000;
+		this.shootingDelta = this.equipVault.rightHand.rateOfFire*1000;
 		return;
 	},
 
@@ -469,7 +471,7 @@ var GameWalk = Trait.inherit({
 		if (positionX || positionY){
 			this.onMove();
 			this.steps++;
-			this.shootingDelta = this.gun.rateOfFire*1000;
+			this.shootingDelta = this.equipVault.rightHand.rateOfFire*1000;
 		}
 		
 	},
@@ -677,7 +679,7 @@ var playerOne = world.createComponent(Player, {name:"NormalWalkingBot", inventor
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2});
-var gun = new Gun({name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1}, {equipPlace:"rightHand"});
+var gun = new Gun({name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand"});
 var player1Gun = playerOne.lootObject(gun);
 var player2Gun = playerTwo.lootObject(gun);
 var player3Gun = playerThree.lootObject(gun);
