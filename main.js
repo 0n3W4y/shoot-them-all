@@ -438,9 +438,9 @@ var GameShoot = Trait.inherit({
 
 	shootingDelta: null,
 	shoot: function(delta, target){
+		var weapon = this.equipVault.rightHand;
+		var shootingSpeed = weapon.rateOfFire*1000;
 		if (this.shootingDelta >= shootingSpeed){
-			var weapon = this.equipVault.rightHand;
-			var shootingSpeed = weapon.rateOfFire*1000;
 			weapon.clip--;
 			this.shoots++;
 			var missOrHit = randomHit();
@@ -771,7 +771,7 @@ var player1Gun = playerOne.lootObject(gun);
 var player2Gun = playerTwo.lootObject(gun);
 var player3Gun = playerThree.lootObject(gun);
 var player4Gun = playerFour.lootObject(gun);
-	playerOne.setToEquip.apply(PlayerOne, [player1Gun]);
+	playerOne.setToEquip(player1Gun);
 	playerTwo.setToEquip(player2Gun);
 	playerThree.setToEquip(player3Gun);
 	playerFour.setToEquip(player4Gun);
