@@ -7,7 +7,6 @@
 	background: #bbb;
 	margin:10px;
 	padding:2px;
-	resize:none;
 	border-color: black;
   	border-style: outset;
 	border-top-right-radius: 8px;
@@ -46,7 +45,6 @@
 	font-size: 11px;
 }
 #fighting-log{
-	display:block;
 	overflow:auto;
 	width:280px;
 	height:250px;

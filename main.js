@@ -35,6 +35,19 @@ var randomHit = function(){
 	return Math.round(Math.random());
 };
 
+var benchmark = {
+	start: function(){
+		this.now = $.now();
+	},
+	stop: function(){
+		var time = $.now();
+		var delta = time - this.now;
+		console.log("From benchmark, delta = " +delta);
+	},
+	now:0
+};
+
+
 
 //-------------------------------------------------------------------------------------------------------------------------
 
@@ -45,7 +58,7 @@ var WeaponStats = Trait.inherit({
 	clip:null,
 	range:null,
 	rateOfFire:null,
-	damage:null,
+	damage:null
 });
 
 var WeaponAdditional = Trait.inherit({
@@ -90,10 +103,10 @@ var PlayerInventory = Trait.inherit({
 			var classDefinition = newItem[0];
 			newItem = this.createComponent(classDefinition, dataItem, paramsItem);
 			this.replaceItem("bag", newItem);
-			console.log(newItem.name + " obtained correctly into " + this.name + " bag.");
+			return newItem;
 		}
-		return newItem;
-	}
+		
+	},
 
 });
 
@@ -110,19 +123,28 @@ var InventoryBag = Trait.inherit({
 		item.inBag = true;
 		if (this.bagMaxSlots == this.bagCurrentSlots){
 			this.bagVault.slot1 = item;
+			this.onSetToBag(item.name);
 			return item;
 		}
 		var num = 1;
 		for (var key in this.bagVault){
 			if (this.bagVault[key] === undefined){
 				this.bagVault[key] = item;
+				this.onSetToBag(item.name);
 				return item;
 			}
 			num++;
 		}
 		num = "slot" + num;
 		this.bagVault[num] = item;
+		this.onSetToBag(item.name);
 		return item;
+	},
+
+	onSetToBag: function(name){
+		var time = this.timeToConsole();
+		var data = time + name + " correctly obtained into the bag.";
+		this.parent.updateUIfightingLog(this, data);
 	}
 
 });
@@ -142,20 +164,30 @@ var InventoryBelt = Trait.inherit({
 			this.bagCurrentSlots++;
 			if (this.beltMaxSlots == this.beltCurrentSlots){
 				this.beltVault.slot1 = item;
+				this.onSetToBelt(item.name);
 				return item;
 			}
 			var num = 1;
 			for (var key in this.beltVault){
 				if (this.beltVault[key] === undefined){
 					this.beltVault[key] = item;
+					this.onSetToBelt(item.name);
 					return item;
 				}
 				num++;
 			}
 			num = "slot" + num;
 			this.bagVault[num] = item;
+			this.onSetToBelt(item.name);
+			return item;
 		}
 		return false;
+	},
+
+	onSetToBelt: function(name){
+		var time = this.timeToConsole();
+		var data = time + name + " correctly obtained into the belt.";
+		this.parent.updateUIfightingLog(this, data);
 	}
 
 });
@@ -163,22 +195,12 @@ var InventoryBelt = Trait.inherit({
 var InventoryEquip = Trait.inherit({
 	__className: "InventoryEquip",
 
-	equipVault:{
-		head:null,
-		shoulders:null,
-		hands:null,
-		torso:null,
-		belt:null,
-		pants:null,
-		boots:null,
-		neck:null,
-		ringOne:null,
-		ringTwo:null,
-		rightHand:null,
-		leftHand:null
-	},
+	equipVault:null,	//head:null,shoulders:null,hands:null,torso:null,belt:null,pants:null,boots:null,neck:null,ringOne:null,ringTwo:null,rightHand:null,leftHand:null
 
 	setToEquip: function(item){ // предположим класс объекта armor и weapon будут иметь схжие свойства, такие как equipPlace или что-то подобное, по нему буду искать и "одевать" предмет на игрока.
+		if (!this.equipVault){
+			this.equipVault = {};
+		}
 		var position = (item.equipPlace) ? item.equipPlace : null; // !!!!!!!!!!!!!!!
 		if (!position){
 			console.log("error, "+ item.name + " can't wear, because item.equipPlace is " + item.equipPlace);
@@ -196,6 +218,7 @@ var InventoryEquip = Trait.inherit({
 					this.bagCurrentSlots++;
 					equipPos[position] = item;
 					this.equipVault.leftHand = item;
+					this.onSetToEquip(item.name, item.equipPlace);
 					return item;
 				}else{
 					console.log("error, "+ item.name + " can't wear, because bag current slots " + this.bagCurrentSlots);
@@ -217,8 +240,14 @@ var InventoryEquip = Trait.inherit({
 		if (item.twoHanded){ //либо блокируем либо дублируем дуручное оружие в левую руку, я задублировал
 			this.equipVault.leftHand = item; // or block, false, or s0m3thing else...
 		}
+		this.onSetToEquip(item.name, item.equipPlace);
+		return item;
+	},
 
-		console.log(item.name + " correctly wear into " + item.equipPlace);
+	onSetToEquip: function(name, place){
+		var time = this.timeToConsole();
+		var data = time + name + " correctly weared into " + place;
+		this.parent.updateUIfightingLog(this, data);
 	}
 });
 
@@ -339,6 +368,7 @@ var GameAI = Trait.inherit({
 			if (alivePlayers.length > 0){
 				this.myEnemy = this.findClosestEnemy(alivePlayers);
 			}else{
+				this.parent.updateUIplayerStats(this);
 				this.parent.stopLoop(); // временное окончание
 				console.log("Game ended");
 				return;
@@ -346,6 +376,7 @@ var GameAI = Trait.inherit({
 		}
 		if (this.myEnemy.status == "dead"){
 			this.myEnemy = null;
+			return;
 		};
 		this.parent.updateUIplayerStats(this);
 
@@ -407,9 +438,9 @@ var GameShoot = Trait.inherit({
 
 	shootingDelta: null,
 	shoot: function(delta, target){
-		var weapon = this.equipVault.rightHand;
-		var shootingSpeed = weapon.rateOfFire*1000;
 		if (this.shootingDelta >= shootingSpeed){
+			var weapon = this.equipVault.rightHand;
+			var shootingSpeed = weapon.rateOfFire*1000;
 			weapon.clip--;
 			this.shoots++;
 			var missOrHit = randomHit();
@@ -546,6 +577,7 @@ var CommonTick = Trait.inherit({
 		}
 		this.update(delta);
 		this.lastTick = time;
+		$("#bechmarking").text(delta); //bechmarking can be removed
 	}
 });
 
@@ -739,10 +771,10 @@ var player1Gun = playerOne.lootObject(gun);
 var player2Gun = playerTwo.lootObject(gun);
 var player3Gun = playerThree.lootObject(gun);
 var player4Gun = playerFour.lootObject(gun);
-playerOne.setToEquip(player1Gun);
-playerTwo.setToEquip(player2Gun);
-playerThree.setToEquip(player3Gun);
-playerFour.setToEquip(player4Gun);
+	playerOne.setToEquip.apply(PlayerOne, [player1Gun]);
+	playerTwo.setToEquip(player2Gun);
+	playerThree.setToEquip(player3Gun);
+	playerFour.setToEquip(player4Gun);
 
 $(document).ready(function(){
 	$("input#pause").click(function(){
@@ -752,4 +784,5 @@ $(document).ready(function(){
 	$("input#start").attr("onclick", "world.startLoop()");
 	$("input#add_bot").attr("onclick", "world.addBotToWorld()");
 	$("input#del_bot").attr("onclick", "removeBotFromWorld()");
+
 })
