@@ -88,7 +88,7 @@ var PlayerInventory = Trait.inherit({
 			var dataItem = newItem[1];
 			var paramsItem = newItem[2];
 			var classDefinition = newItem[0];
-			var newItem = this.createComponent(classDefinition, dataItem, paramsItem);
+			newItem = this.createComponent(classDefinition, dataItem, paramsItem);
 			this.replaceItem("bag", newItem);
 			console.log(newItem.name + " obtained correctly into " + this.name + " bag.");
 		}
@@ -105,27 +105,23 @@ var InventoryBag = Trait.inherit({
 	bagVault:null,
 
 	setToBag:function (item){
-		if (this.bagCurrentSlots > 0){
-			// if collectble ... код
-			this.bagCurrentSlots--;
-			item.inBag = true;
-			if (this.bagMaxSlots == this.bagCurrentSlots){
-				this.bagVault.slot1 = item;
-				return;
-			}
-			var num = 1;
-			for (var key in this.bagVault){
-				if (this.bagVault[key] === undefined){
-					this.bagVault[key] = item;
-					return;
-				}
-				num++;
-			}
-			num = "slot" + num;
-			this.bagVault[num] = item;
-		}else{
-			return false;
+		// if collectble ... код
+		this.bagCurrentSlots--;
+		item.inBag = true;
+		if (this.bagMaxSlots == this.bagCurrentSlots){
+			this.bagVault.slot1 = item;
+			return item;
 		}
+		var num = 1;
+		for (var key in this.bagVault){
+			if (this.bagVault[key] === undefined){
+				this.bagVault[key] = item;
+				return item;
+			}
+			num++;
+		}
+		num = "slot" + num;
+		this.bagVault[num] = item;
 		return item;
 	}
 
@@ -140,7 +136,6 @@ var InventoryBelt = Trait.inherit({
 
 	setToBelt: function(item){
 		if (this.beltCurrentSlots > 0){
-			// if collectble ... код
 			this.beltCurrentSlots--;
 			item.inBelt = true;
 			item.inBag = false;
@@ -192,7 +187,7 @@ var InventoryEquip = Trait.inherit({
 
 		var equipPos = this.equipVault;
 		if (item.twoHanded){
-			if (equipPos.leftHand && equipPos.rightHand && (equipPos.leftHand.id != quipPos.rightHand.id)){
+			if (equipPos.leftHand && equipPos.rightHand && (equipPos.leftHand.id != equipPos.rightHand.id)){
 				if (this.bagCurrentSlots >= 1){
 					equipPos[position].inEquip = false;
 					equipPos[position].inBag = true;
@@ -327,6 +322,10 @@ var GameAI = Trait.inherit({
 
 	aiLogic: function(delta){
 		if (this.hp <= 0){
+			if (this.status == "alive"){
+				this.death();
+				this.parent.updateUIplayerStats(this);
+			}
 			return;
 		}
 		if (!this.currentPoint){
@@ -345,6 +344,10 @@ var GameAI = Trait.inherit({
 				return;
 			}
 		}
+		if (this.myEnemy.status == "dead"){
+			this.myEnemy = null;
+		};
+		this.parent.updateUIplayerStats(this);
 
 		var path = this.findPath(this.myEnemy);
 		if (this.needReload()){
@@ -373,12 +376,14 @@ var GameSpawn = Trait.inherit({
 		this.currentPosition = {x: pointX, y: pointY};
 		this.onSpawn();
 		this.shootingDelta = this.equipVault.rightHand.rateOfFire*1000;
+		this.status = "alive";
 		return;
 	},
 
 	onSpawn: function(){
 		var rightNow = this.timeToConsole();
-		console.log(rightNow + this.name + " spawned on [x=" + this.currentPoint.x + "; y=" + this.currentPoint.y + "]");
+		var data = rightNow + "spawned on [x=" + this.currentPoint.x + "; y=" + this.currentPoint.y + "]";
+		this.parent.updateUIfightingLog(this, data);
 	}
 })
 
@@ -386,7 +391,14 @@ var GameDeath = Trait.inherit({
 	__className: "GameDeath",
 
 	death: function(){
+		this.status = "dead";
+		this.onDeath();
+	},
 
+	onDeath: function(){
+		var rightNow = this.timeToConsole();
+		var data = rightNow + "was killed by " + this.killer.name;
+		this.parent.updateUIfightingLog(this, data);
 	}
 });
 
@@ -399,6 +411,7 @@ var GameShoot = Trait.inherit({
 		var shootingSpeed = weapon.rateOfFire*1000;
 		if (this.shootingDelta >= shootingSpeed){
 			weapon.clip--;
+			this.shoots++;
 			var missOrHit = randomHit();
 			if (missOrHit){
 				target.hp -= weapon.damage;
@@ -407,10 +420,11 @@ var GameShoot = Trait.inherit({
 			if (!target.hp){
 				this.myEnemy = null;
 				target.deaths++;
+				this.kills++;
+				target.killer = this;
 			}
 			missOrHit = (missOrHit) ? "Hit" : "Miss";
 			this.shootingDelta = 0;
-			this.shoots++;
 			this.onShoot(target, missOrHit);
 		}else{
 			this.shootingDelta += delta;
@@ -420,7 +434,8 @@ var GameShoot = Trait.inherit({
 
 	onShoot: function(target, missOrHit){
 		var rightNow = this.timeToConsole();
-		console.log(rightNow + this.name + " shooted to " + target.name + ", and " + missOrHit);
+		var data = rightNow + "shooted to " + target.name + ", and " + missOrHit;
+		this.parent.updateUIfightingLog(this, data);
 	}
 });
 
@@ -435,7 +450,8 @@ var GameReload = Trait.inherit({
 
 	onReload: function(){
 		var rightNow = this.timeToConsole();
-		console.log(rightNow + this.name + " reloading his weapon");
+		var data = rightNow + "reloading his weapon";
+		this.parent.updateUIfightingLog(this, data);
 	}
 })
 
@@ -478,7 +494,8 @@ var GameWalk = Trait.inherit({
 
 	onMove: function(){ //log
 		var rightNow = this.timeToConsole();
-		console.log(rightNow + this.name + " was moved in to: [x=" + this.currentPosition.x + "; y=" + this.currentPosition.y + "]");
+		var data = rightNow + " was moved in to: [x=" + this.currentPosition.x + "; y=" + this.currentPosition.y + "]";
+		this.parent.updateUIfightingLog(this, data);
 	}
 });
 
@@ -532,10 +549,11 @@ var CommonTick = Trait.inherit({
 	}
 });
 
-var CommonBotControl = Trait.inherit({
+var GameBotControl = Trait.inherit({
 	__className: "CommonbotControl",
 
 	bots:null,
+	botsInGame:null,
 
 	addBotToWorld: function(data){
 		if (!this.botsInGame){
@@ -543,8 +561,8 @@ var CommonBotControl = Trait.inherit({
 			data.userInterfaceId = "robot1"
 			return; 
 		}
-		var newid = "robot" + this.botsInGame;
-		$("div#infoBlock").clone().attr("id", newid).appendTo("div#mainStatBlock");
+		var newId = "robot" + this.botsInGame;
+		$("div#infoBlock").clone().attr("id", newId).appendTo("div#mainStatBlock");
 		this.botsInGame++;
 		data.userInterfaceId = newid;
 		return;
@@ -570,7 +588,9 @@ var CommonComponent = Object.inherit(
 		this.components = this.components ? this.components : {};
 		if (params){
 			for (var key in params){
-				this[key] = params[key];
+				if (typeof params[key] != "Object"){
+					this[key] = params[key];
+				}
 			}
 		}
 
@@ -585,15 +605,14 @@ var CommonComponent = Object.inherit(
 		var component = new classDefinition(data, params);
 		set_component_in(this.components, className, component.id, component);
 		if (className == "Player"){
-			this.fillUserIface(component);
-			component.initInventory(data.inventory);
+			component.initInventory(params.inventory);
 		}
 		console.log("create component done, created: " + className + ", with name:" + data.name);
 		return component;
 	},
 
-	removeComponent: function(classDefinition, id){
-		var componentId = get_component_in(classDefinition, id);
+	removeComponent: function(className, id){
+		var componentId = get_component_in(this.components, className, id);
 	},
 
 	createId: function(classDefinition){ // спизжено, нужно разобраться)
@@ -653,18 +672,20 @@ var Player = CommonComponent.inherit(
 {
 	__className: "Player",
 
-	name: "NickName"
+	name: "NickName",
+	userInterfaceId:null,
+	status:null
 
 });
 
 var World = CommonComponent.inherit(
 	CommonTick,
-	CommonBotControl,
+	GameBotControl,
 {
 	__className: "World",
 
 	gameMap: {x: 100, y: 100},
-	botsInGame: 0,
+
 	update: function(delta){
 		this.runAI(delta);
 		this.gameResult();
@@ -682,17 +703,37 @@ var World = CommonComponent.inherit(
 
 	},
 
-	fillUserIface: function(data){
+	updateUIfightingLog: function(player, data){
+		var playerId = "div#" + player.userInterfaceId;
+		data = "<li>" + data + "</li>";
+		$(playerId).find("ul#fighting-log").prepend(data);
+	},
 
+	updateUIplayerStats: function(player){
+		var hp = player.hp || 0,
+		gun = player.equipVault.rightHand.name,
+		clip = player.equipVault.rightHand.clip || 0,
+		kills = player.kills || 0,
+		steps = player.steps || 0,
+		death = player.deaths || 0,
+		shoots = player.shoots || 0,
+		hits = player.hits || 0,
+		nickName = player.name,
+		status = player.status,
+		playerId = "div#" + player.userInterfaceId;
+		var enemy = (player.myEnemy) ? player.myEnemy.name : "No target";	
+		$(playerId).find("div#nickname").text(nickName);
+		var stats = "Health: " +hp+ "<br> Gun: " +gun+ "<br> Clip: " +clip+ "<br> Enemy: " +enemy+ "<br> Kills: " +kills+ "<br> Steps: " +steps+ "<br> Death: " +death+ "<br> Shoots: " +shoots+ "<br> Hits: " +hits+ "<br> Status: " +status;
+		$(playerId).find("div.statstext").html(stats);
 	}
 
 });
 
 var world = new World({id:"main", name:"DesertHiils", parent:window});
-var playerOne = world.createComponent(Player, {name:"NormalWalkingBot", inventory:{bagMaxSlots:15}}, {hp: 2});
-var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2});
-var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2});
-var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2});
+var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {hp: 2, inventory:{bagMaxSlots:15}, userInterfaceId:"robot1"});
+var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2, userInterfaceId:"robot2"});
+var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2, userInterfaceId:"robot3"});
+var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2, userInterfaceId:"robot4"});
 var gun = new Gun({name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand"});
 var player1Gun = playerOne.lootObject(gun);
 var player2Gun = playerTwo.lootObject(gun);
