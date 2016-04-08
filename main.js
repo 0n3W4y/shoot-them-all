@@ -84,13 +84,13 @@ var PlayerInventory = Trait.inherit({
 
 	lootObject: function(item){
 		if (this.bagCurrentSlots > 0){
-			var classDefinition = item.__proto__.constructor;
-			var cloneData = $.extend({}, item);
-			var cloneExtras= $.extend(true, {}, item);
-			clone.parent = null;
-			var newItem = this.createComponent(classDefinition, clone);
+			var newItem = this.getData(item);
+			var dataItem = newItem[1];
+			var paramsItem = newItem[2];
+			var classDefinition = newItem[0];
+			var newItem = this.createComponent(classDefinition, dataItem, paramsItem);
 			this.replaceItem("bag", newItem);
-			console.log(clone.name + " obtained correctly into " + this.name + " bag.");
+			console.log(newItem.name + " obtained correctly into " + this.name + " bag.");
 		}
 		return newItem;
 	}
@@ -577,12 +577,12 @@ var CommonComponent = Object.inherit(
 		console.log("commonInit done.");
 	},
 
-	createComponent: function(classDefenition, data, params){
-		var className = classDefenition.prototype.__className;
+	createComponent: function(classDefinition, data, params){
+		var className = classDefinition.prototype.__className;
 		if (!data.parent){
 			data.parent = this;
 		}
-		var component = new classDefenition(data, params);
+		var component = new classDefinition(data, params);
 		set_component_in(this.components, className, component.id, component);
 		if (className == "Player"){
 			this.fillUserIface(component);
@@ -592,11 +592,11 @@ var CommonComponent = Object.inherit(
 		return component;
 	},
 
-	removeComponent: function(classDefenition, id){
-		var componentId = get_component_in(classDefenition, id);
+	removeComponent: function(classDefinition, id){
+		var componentId = get_component_in(classDefinition, id);
 	},
 
-	createId: function(classDefenition){ // спизжено, нужно разобраться)
+	createId: function(classDefinition){ // спизжено, нужно разобраться)
 		return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
 			var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
 			return v.toString(16);
@@ -610,6 +610,20 @@ var CommonComponent = Object.inherit(
 		var mm = date.getMinutes();
 		var ss = date.getSeconds();
 		return "[" + hh + ":" + mm + ":" + ss + "] ";
+	},
+
+	getData:function(item){
+		var classDefinition = item.__proto__.constructor;
+		var newItemData = {};		
+		newItemData.id = item.id;
+		newItemData.name = item.name;
+		newItemData.components = $.extend(true, {}, item.components);
+		var newItemParams = $.extend({}, item);
+		delete newItemParams.components;
+		delete newItemParams.id;
+		delete newItemParams.name;
+		delete newItemParams.parent;
+		return [classDefinition, newItemData, newItemParams];
 	}
 
 });
