@@ -13,18 +13,20 @@ var set_component_in = function(object, className, id, component){
 var get_component_in = function(object, className, id){
 	var p = object;
 	var o = null;
+	var result = undefined;
 	for (var key in p){
 		if (key == className){
-			for (var a in p[key]){
-				if (a == id){
-					o = p[key];
+			o = p[key];
+			for (var num in o){
+				if (num == id){
+					result = o[num];
 					break;
 				}
 			}
 		}
 	}
 	
-	return o;
+	return result;
 };
 
 var randomSortingForArray = function(a, b){
@@ -34,20 +36,6 @@ var randomSortingForArray = function(a, b){
 var randomHit = function(){
 	return Math.round(Math.random());
 };
-
-var benchmark = {
-	start: function(){
-		this.now = $.now();
-	},
-	stop: function(){
-		var time = $.now();
-		var delta = time - this.now;
-		console.log("From benchmark, delta = " +delta);
-	},
-	now:0
-};
-
-
 
 //-------------------------------------------------------------------------------------------------------------------------
 
@@ -75,21 +63,17 @@ var PlayerInventory = Trait.inherit({
 		if(data){
 			this.bagMaxSlots = data.bagMaxSlots || 10;
 			this.bagCurrentSlots = this.bagMaxSlots;
-			this.bagVault = {};
 			this.beltMaxSlots = data.beltMaxSlots || 5;
 			this.beltCurrentSlots = this.beltMaxSlots;
-			this.beltVault = {};
 		}else{ // default values
 			this.bagMaxSlots = 10;
 			this.bagCurrentSlots = this.bagMaxSlots;
-			this.bagVault = {};
 			this.beltMaxSlots = 5;
 			this.beltCurrentSlots = this.beltMaxSlots;
-			this.beltVault = {};
 		}
 	},
 
-	replaceItem: function ( newPos, item){
+	replaceItem: function (newPos, item){
 		var setter = "setTo" + newPos.charAt(0).toUpperCase() + newPos.slice(1).toLowerCase();
 		var func = this[setter];
 		return func.apply(this, [item]);
@@ -105,6 +89,8 @@ var PlayerInventory = Trait.inherit({
 			this.replaceItem("bag", newItem);
 			return newItem;
 		}
+		console.log("error from lootObject, bagCurrentSlots <= 0");
+		return false;
 		
 	},
 
@@ -115,30 +101,29 @@ var InventoryBag = Trait.inherit({
 
 	bagMaxSlots:null,
 	bagCurrentSlots:null,
-	bagVault:null,
 
 	setToBag:function (item){
-		// if collectble ... код
-		this.bagCurrentSlots--;
-		item.inBag = true;
-		if (this.bagMaxSlots == this.bagCurrentSlots){
-			this.bagVault.slot1 = item;
-			this.onSetToBag(item.name);
-			return item;
-		}
-		var num = 1;
-		for (var key in this.bagVault){
-			if (this.bagVault[key] === undefined){
-				this.bagVault[key] = item;
+		if (this.bagCurrentSlots > 0){
+			// if collectble ... код
+			this.bagCurrentSlots--;
+			item.inBag = true;
+			if (this.bagMaxSlots == this.bagCurrentSlots){
+				this.bagSlot1 = item;
 				this.onSetToBag(item.name);
 				return item;
 			}
-			num++;
+			for (var i = 1; i <= this.beltMaxSlots;){
+				var key = "bagSlot" + i;
+				if (this[key] === undefined){
+					this[key] = item;
+					this.onSetToBag(item.name);
+					return item;
+				}
+				i++;
+			}
+			return item;
 		}
-		num = "slot" + num;
-		this.bagVault[num] = item;
-		this.onSetToBag(item.name);
-		return item;
+		return false;
 	},
 
 	onSetToBag: function(name){
@@ -154,39 +139,33 @@ var InventoryBelt = Trait.inherit({
 
 	beltMaxSlots:null,
 	beltCurrentSlots:null,
-	beltVault:null,
 
 	setToBelt: function(item){
 		if (this.beltCurrentSlots > 0){
 			this.beltCurrentSlots--;
 			item.inBelt = true;
 			item.inBag = false;
-			this.bagCurrentSlots++;
 			if (this.beltMaxSlots == this.beltCurrentSlots){
-				this.beltVault.slot1 = item;
+				this.beltSlot1 = item;
 				this.onSetToBelt(item.name);
 				return item;
 			}
-			var num = 1;
-			for (var key in this.beltVault){
-				if (this.beltVault[key] === undefined){
-					this.beltVault[key] = item;
+			for (var i = 1; i <= this.beltMaxSlots;){
+				var key = "beltSlot" + i;
+				if (this[key] === undefined){
+					this[key] = item;
 					this.onSetToBelt(item.name);
 					return item;
 				}
-				num++;
+				i++;
 			}
-			num = "slot" + num;
-			this.bagVault[num] = item;
-			this.onSetToBelt(item.name);
-			return item;
 		}
 		return false;
 	},
 
 	onSetToBelt: function(name){
 		var time = this.timeToConsole();
-		var data = time + name + " correctly obtained into the belt.";
+		var data = time + name + " correctly obtained on belt.";
 		this.parent.updateUIfightingLog(this, data);
 	}
 
@@ -195,29 +174,36 @@ var InventoryBelt = Trait.inherit({
 var InventoryEquip = Trait.inherit({
 	__className: "InventoryEquip",
 
-	equipVault:null,	//head:null,shoulders:null,hands:null,torso:null,belt:null,pants:null,boots:null,neck:null,ringOne:null,ringTwo:null,rightHand:null,leftHand:null
+	equipHead:null,
+	equipShoulders:null,
+	equipHands:null,
+	equipTorso:null,
+	equipBelt:null,
+	equipPants:null,
+	equipBoots:null,
+	equipNeck:null,
+	equipRingOne:null,
+	equipRingTwo:null,
+	equipRightHand:null,
+	equipLeftHand:null,
 
 	setToEquip: function(item){ // предположим класс объекта armor и weapon будут иметь схжие свойства, такие как equipPlace или что-то подобное, по нему буду искать и "одевать" предмет на игрока.
-		if (!this.equipVault){
-			this.equipVault = {};
-		}
-		var position = (item.equipPlace) ? item.equipPlace : null; // !!!!!!!!!!!!!!!
+		var position = (item.equipPlace) ? item.equipPlace : null;
 		if (!position){
 			console.log("error, "+ item.name + " can't wear, because item.equipPlace is " + item.equipPlace);
 			return false;
 		}
-
-		var equipPos = this.equipVault;
 		if (item.twoHanded){
-			if (equipPos.leftHand && equipPos.rightHand && (equipPos.leftHand.id != equipPos.rightHand.id)){
+			if (equipLeftHand && equipRightHand && (equipLeftHand.id != equipRightHand.id)){
 				if (this.bagCurrentSlots >= 1){
-					equipPos[position].inEquip = false;
-					equipPos[position].inBag = true;
-					equipPos.rightHand.inEquip = false;
-					equipPos.rightHand.inBag = true;
+					this.equipLeftHand.inEquip = false;
+					this.equipLeftHand.inBag = true;
+					this.equipRightHand.inEquip = false;
+					this.equipRightHand.inBag = true;
 					this.bagCurrentSlots++;
-					equipPos[position] = item;
-					this.equipVault.leftHand = item;
+					this.equipRightHand = item;
+					item.inBag = false;
+					item.inEquip = true;
 					this.onSetToEquip(item.name, item.equipPlace);
 					return item;
 				}else{
@@ -227,18 +213,20 @@ var InventoryEquip = Trait.inherit({
 			}
 		}
 
-		if (!equipPos[position]){
-			equipPos[position] = item;
+		if (!this[position]){
+			this[position] = item;
 			item.inEquip = true;
 			item.inBag = false;
 			this.bagCurrentSlots++;
 		}else{
-			equipPos[position].inEquip = false;
-			equipPos[position].inBag = true;
-			equipPos[position] = item;
+			this[position].inEquip = false;
+			this[position].inBag = true;
+			this[position] = item;
+			item.inBag = false;
+			item.inEquip = true;
 		}
 		if (item.twoHanded){ //либо блокируем либо дублируем дуручное оружие в левую руку, я задублировал
-			this.equipVault.leftHand = item; // or block, false, or s0m3thing else...
+			this.equipLeftHand = item; // or block, false, or s0m3thing else...
 		}
 		this.onSetToEquip(item.name, item.equipPlace);
 		return item;
@@ -333,7 +321,7 @@ var GameAI = Trait.inherit({
 	canShootToEnemy: function(){
 		var distanceX = Math.abs(this.currentPosition.x - this.myEnemy.currentPosition.x);
 		var distanceY = Math.abs(this.currentPosition.y - this.myEnemy.currentPosition.y);
-		var shootRange = this.equipVault.rightHand.range;
+		var shootRange = this.equipRightHand.range;
 		var distance = Math.min(distanceX, distanceY);
 		if (distance <= shootRange){
 			return true;
@@ -342,7 +330,7 @@ var GameAI = Trait.inherit({
 	},
 
 	needReload: function(){
-		var clip = this.equipVault.rightHand.clip;
+		var clip = this.equipRightHand.clip;
 		if (clip == 0){
 			return true;
 		}
@@ -390,6 +378,7 @@ var GameAI = Trait.inherit({
 			return;
 		}
 		this.move(delta ,path);
+		console.log(this.name + "delta=" + delta + "; path=" + path + "; canShoot?=" + this.canShootToEnemy() + "; enemy=" + this.myEnemy.name);
 	}
 
 
@@ -406,7 +395,7 @@ var GameSpawn = Trait.inherit({
 		this.currentPoint = {x: pointX, y: pointY};
 		this.currentPosition = {x: pointX, y: pointY};
 		this.onSpawn();
-		this.shootingDelta = this.equipVault.rightHand.rateOfFire*1000;
+		this.shootingDelta = this.equipRightHand.rateOfFire*1000;
 		this.status = "alive";
 		return;
 	},
@@ -438,7 +427,7 @@ var GameShoot = Trait.inherit({
 
 	shootingDelta: null,
 	shoot: function(delta, target){
-		var weapon = this.equipVault.rightHand;
+		var weapon = this.equipRightHand;
 		var shootingSpeed = weapon.rateOfFire*1000;
 		if (this.shootingDelta >= shootingSpeed){
 			weapon.clip--;
@@ -474,7 +463,7 @@ var GameReload = Trait.inherit({
 	__className: "GameReload",
 
 	reload: function(){
-		var weapon = this.equipVault.rightHand;
+		var weapon = this.equipRightHand;
 		weapon.clip = weapon.maxClip;
 		this.onReload();
 	},
@@ -518,7 +507,7 @@ var GameWalk = Trait.inherit({
 		if (positionX || positionY){
 			this.onMove();
 			this.steps++;
-			this.shootingDelta = this.equipVault.rightHand.rateOfFire*1000;
+			this.shootingDelta = this.equipRightHand.rateOfFire*1000;
 		}
 		
 	},
@@ -643,7 +632,9 @@ var CommonComponent = Object.inherit(
 		return component;
 	},
 
-	removeComponent: function(className, id){
+	removeComponent: function(data){
+		var className = data.__proto__.constructor.__className;
+		var id = data.id;
 		var componentId = get_component_in(this.components, className, id);
 	},
 
@@ -663,7 +654,7 @@ var CommonComponent = Object.inherit(
 		return "[" + hh + ":" + mm + ":" + ss + "] ";
 	},
 
-	getData:function(item){
+	getData: function(item){
 		var classDefinition = item.__proto__.constructor;
 		var newItemData = {};		
 		newItemData.id = item.id;
@@ -743,8 +734,8 @@ var World = CommonComponent.inherit(
 
 	updateUIplayerStats: function(player){
 		var hp = player.hp || 0,
-		gun = player.equipVault.rightHand.name,
-		clip = player.equipVault.rightHand.clip || 0,
+		gun = player.equipRightHand.name,
+		clip = player.equipRightHand.clip || 0,
 		kills = player.kills || 0,
 		steps = player.steps || 0,
 		death = player.deaths || 0,
@@ -766,15 +757,8 @@ var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {hp: 2,
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2, userInterfaceId:"robot2"});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2, userInterfaceId:"robot3"});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2, userInterfaceId:"robot4"});
-var gun = new Gun({name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand"});
-var player1Gun = playerOne.lootObject(gun);
-var player2Gun = playerTwo.lootObject(gun);
-var player3Gun = playerThree.lootObject(gun);
-var player4Gun = playerFour.lootObject(gun);
-	playerOne.setToEquip(player1Gun);
-	playerTwo.setToEquip(player2Gun);
-	playerThree.setToEquip(player3Gun);
-	playerFour.setToEquip(player4Gun);
+var gun = new Gun({name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"equipRightHand"});
+
 
 $(document).ready(function(){
 	$("input#pause").click(function(){
@@ -784,5 +768,13 @@ $(document).ready(function(){
 	$("input#start").attr("onclick", "world.startLoop()");
 	$("input#add_bot").attr("onclick", "world.addBotToWorld()");
 	$("input#del_bot").attr("onclick", "removeBotFromWorld()");
+	var player1Gun = playerOne.lootObject(gun);
+	var player2Gun = playerTwo.lootObject(gun);
+	var player3Gun = playerThree.lootObject(gun);
+	var player4Gun = playerFour.lootObject(gun);
+	playerOne.setToEquip(player1Gun);
+	playerTwo.setToEquip(player2Gun);
+	playerThree.setToEquip(player3Gun);
+	playerFour.setToEquip(player4Gun);
 
 })
