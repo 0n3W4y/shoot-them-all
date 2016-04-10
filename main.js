@@ -46,13 +46,29 @@ var WeaponStats = Trait.inherit({
 	clip:null,
 	range:null,
 	rateOfFire:null,
-	damage:null
+	damage:null,
+	ammo:null
 });
 
 var WeaponAdditional = Trait.inherit({
 	__className: "WeaponAdditional",
 
 	equipPlace:null
+
+});
+
+var AmmunitionStats = Trait.inherit({
+	__className: "AmmunitionStats",
+
+	caliber:null
+})
+
+var AmmunitionAdditional = Trait.inherit({
+	__className: "AmmunitionAdditional",
+
+	canStack:true,
+	maxStackSize:null,
+	currentStackSize:null,
 
 });
 
@@ -611,7 +627,6 @@ var CommonComponent = Object.inherit(
 
 
 	initialize: function(data, params){
-		console.log("initialize started...");
 		this.commonInit(data, params);
 	},
 
@@ -627,8 +642,6 @@ var CommonComponent = Object.inherit(
 				}
 			}
 		}
-
-		console.log("commonInit done.");
 	},
 
 	createComponent: function(classDefinition, data, params){
@@ -641,7 +654,6 @@ var CommonComponent = Object.inherit(
 		if (className == "Player"){
 			component.initInventory(params.inventory);
 		}
-		console.log("create component done, created: " + className + ", with name:" + data.name);
 		return component;
 	},
 
@@ -683,6 +695,13 @@ var CommonComponent = Object.inherit(
 
 });
 
+var Ammo = CommonComponent.inherit(
+	AmmunitionStats,
+	AmmunitionAdditional,
+{
+	name:null
+})
+
 var Gun = CommonComponent.inherit(
 	WeaponStats,
 	WeaponAdditional,
@@ -721,7 +740,6 @@ var World = CommonComponent.inherit(
 	__className: "World",
 
 	gameMap: {x: 100, y: 100},
-	timeToStop:null,
 
 	update: function(delta){
 		this.runAI(delta);
@@ -771,7 +789,8 @@ var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {maxHp:
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, maxHp: 2, userInterfaceId:"robot2"});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, maxHp: 2, userInterfaceId:"robot3"});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, maxHp: 2, userInterfaceId:"robot4"});
-var gun = new Gun({name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"equipRightHand"});
+var gun = new Gun({name: "Magnum 44"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"equipRightHand", ammo:"0,44"});
+var ammoForGun = new Ammo({name:"Ammo 0,44"}, {caliber:"0,44"});
 
 
 $(document).ready(function(){
@@ -783,9 +802,13 @@ $(document).ready(function(){
 	$("input#add_bot").attr("onclick", "world.addBotToWorld()");
 	$("input#del_bot").attr("onclick", "removeBotFromWorld()");
 	var player1Gun = playerOne.lootObject(gun);
+	playerOne.lootObject(ammoForGun);
 	var player2Gun = playerTwo.lootObject(gun);
+	playerTwo.lootObject(ammoForGun);
 	var player3Gun = playerThree.lootObject(gun);
+	playerThree.lootObject(ammoForGun);
 	var player4Gun = playerFour.lootObject(gun);
+	playerFour.lootObject(ammoForGun);
 	playerOne.setToEquip(player1Gun);
 	playerTwo.setToEquip(player2Gun);
 	playerThree.setToEquip(player3Gun);
