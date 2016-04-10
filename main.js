@@ -52,7 +52,7 @@ var WeaponStats = Trait.inherit({
 var WeaponAdditional = Trait.inherit({
 	__className: "WeaponAdditional",
 
-	equipPlace:"rightHand"
+	equipPlace:null
 
 });
 
@@ -242,7 +242,8 @@ var InventoryEquip = Trait.inherit({
 var PlayerStats = Trait.inherit({
 	__className: "PlayerStats",
 
-	hp:null
+	hp:null,
+	maxHp:null,
 })
 var PlayerScore = Trait.inherit({
 	__className: "PlayerScore",
@@ -338,7 +339,7 @@ var GameAI = Trait.inherit({
 	},
 
 	aiLogic: function(delta){
-		if (this.hp <= 0){
+		if (this.hp === 0 || this.hp < 0){
 			if (this.status == "alive"){
 				this.death();
 				this.parent.updateUIplayerStats(this);
@@ -356,9 +357,8 @@ var GameAI = Trait.inherit({
 			if (alivePlayers.length > 0){
 				this.myEnemy = this.findClosestEnemy(alivePlayers);
 			}else{
-				this.parent.updateUIplayerStats(this);
-				this.parent.stopLoop(); // временное окончание
-				console.log("Game ended");
+				var now = this.timeToConsole();
+				console.log(now + this.name + " have not an any enemy");
 				return;
 			}
 		}
@@ -378,7 +378,6 @@ var GameAI = Trait.inherit({
 			return;
 		}
 		this.move(delta ,path);
-		console.log(this.name + "delta=" + delta + "; path=" + path + "; canShoot?=" + this.canShootToEnemy() + "; enemy=" + this.myEnemy.name);
 	}
 
 
@@ -397,7 +396,15 @@ var GameSpawn = Trait.inherit({
 		this.onSpawn();
 		this.shootingDelta = this.equipRightHand.rateOfFire*1000;
 		this.status = "alive";
+		this.hp = this.maxHp;
 		return;
+	},
+
+	reSpawn: function(){
+		this.currentPoint = [null, null];
+		this.currentPosition = [null, null];
+		this.equipRightHand.clip = this.equipRightHand.maxClip;
+		return 	this.spawn();
 	},
 
 	onSpawn: function(){
@@ -412,7 +419,11 @@ var GameDeath = Trait.inherit({
 
 	death: function(){
 		this.status = "dead";
+		setTimeout(this.reSpawn.bind(this), 5000);
 		this.onDeath();
+		var now = this.timeToConsole();
+		var data = now + this.name + " have been respawned in 5 seconds";
+		this.parent.updateUIfightingLog(this, data);
 	},
 
 	onDeath: function(){
@@ -530,6 +541,8 @@ var CommonTick = Trait.inherit({
 			clearInterval(this.loopId);
 		}
 		this.loopId = window.setInterval(this.tick.bind(this), 1000/this.fps);
+		setTimeout(world.stopLoop.bind(this), 120000); //timer to stop the game;
+		
 		return this;
 	},
 
@@ -571,7 +584,7 @@ var CommonTick = Trait.inherit({
 });
 
 var GameBotControl = Trait.inherit({
-	__className: "CommonbotControl",
+	__className: "CommonBotControl",
 
 	bots:null,
 	botsInGame:null,
@@ -708,6 +721,7 @@ var World = CommonComponent.inherit(
 	__className: "World",
 
 	gameMap: {x: 100, y: 100},
+	timeToStop:null,
 
 	update: function(delta){
 		this.runAI(delta);
@@ -753,10 +767,10 @@ var World = CommonComponent.inherit(
 });
 
 var world = new World({id:"main", name:"DesertHiils", parent:window});
-var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {hp: 2, inventory:{bagMaxSlots:15}, userInterfaceId:"robot1"});
-var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, hp: 2, userInterfaceId:"robot2"});
-var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, hp: 2, userInterfaceId:"robot3"});
-var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, hp: 2, userInterfaceId:"robot4"});
+var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {maxHp: 2, inventory:{bagMaxSlots:15}, userInterfaceId:"robot1"});
+var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, maxHp: 2, userInterfaceId:"robot2"});
+var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, maxHp: 2, userInterfaceId:"robot3"});
+var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, maxHp: 2, userInterfaceId:"robot4"});
 var gun = new Gun({name: "Small Gun"}, {clip: 6, maxClip: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"equipRightHand"});
 
 
