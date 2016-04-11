@@ -38,10 +38,10 @@
 	display:block;
 	overflow:hidden;
 	float:left;
-	width:50%;
+	width:60%;
 	height:100%;
 	margin:1px;
-	font-size: 11px;
+	font-size: 12px;
 }
 #fighting-log{
 	overflow:auto;
