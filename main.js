@@ -32,41 +32,6 @@ var get_in = function(object, className, id){
 
 //-------------------------------------------------------------------------------------------------------------------------
 
-var WeaponStats = Trait.inherit({
-	__className: "WeaponStats",
-
-	clipMax:null,
-	clip:null,
-	range:null,
-	rateOfFire:null,
-	damage:null,
-	ammo:null
-});
-
-var WeaponAdditional = Trait.inherit({
-	__className: "WeaponAdditional",
-
-	slot:null,
-	place:null,
-	bodySlot:"rightHand", 
-	twoHanded:false
-
-});
-
-var AmmunitionStats = Trait.inherit({
-	__className: "AmmunitionStats",
-
-	caliber:null
-})
-
-var AmmunitionAdditional = Trait.inherit({
-	__className: "AmmunitionAdditional",
-
-	maxAmount:null,
-	amount:null,
-
-});
-
 var PlayerInventory = Trait.inherit({
 	__className: "PlayerInventory",
 
@@ -120,7 +85,7 @@ var PlayerInventory = Trait.inherit({
 		
 	},
 
-	lootObject: function(item){ // лутать можно если есть свободные слоты, в зависимоти от item.palace;
+	lootObject: function(item){ 
 		if (this.bagCurrentSlots > 0){
 			var newItem = this.getData(item);
 			var dataItem = newItem[1];
@@ -139,7 +104,7 @@ var PlayerInventory = Trait.inherit({
 
 	countSlotInPlace: function(place){
 		var arr = [];
-		var components = this.components;
+		var components = this.getComponentList("components")
 		for (var key in components){
 			var obj = components[key];
 			for (var num in obj){
@@ -182,23 +147,6 @@ var PlayerInventory = Trait.inherit({
 	}
 });
 
-var PlayerStats = Trait.inherit({
-	__className: "PlayerStats",
-
-	hp:null,
-	maxHp:null,
-});
-
-var PlayerScore = Trait.inherit({
-	__className: "PlayerScore",
-
-	kills:null,
-	deaths:null,
-	shoots:null,
-	hits:null,
-	steps:null
-
-});
 
 var GameAI = Trait.inherit({
 	__className: "GameAI",
@@ -225,7 +173,7 @@ var GameAI = Trait.inherit({
 	},
 
 	findAllPlayers: function(){
-		var o = this.parent.components.Player;
+		var o = this.getComponentList("Player");
 		var enemyArr = [];
 		for (var key in o){
 			var a = o[key];
@@ -333,7 +281,7 @@ var GameSpawn = Trait.inherit({
 	__className: "GameSpawn",
 
 	respawnDelta:0,
-	respawnTime:5000, // 5 seconds;
+	respawnTime:5, // 5 seconds;
 
 	spawn: function(){
 		var worldMapX = this.parent.gameMap.x;
@@ -349,14 +297,20 @@ var GameSpawn = Trait.inherit({
 	},
 
 	respawn: function(delta){
-		if (this.respawnDelta >= this.respawnTime){
+		if (this.respawnDelta >= this.respawnTime*1000){
 			this.currentPoint = null;
 			this.currentPosition = null;
 			this.weapon.clip = this.weapon.clipMax;
 			this.respawnDelta = 0;
 			return 	this.spawn();
 		}
+		if (this.respawnDelta == 0){
+			var now = this.timeToConsole();
+			var data = now + "Respawned in " +this.respawnTime+ " seconds.";
+			this.parent.updateUIfightingLog(data);
+		}
 		this.respawnDelta += delta;
+
 	},
 
 	onSpawn: function(){
@@ -486,14 +440,14 @@ var CommonTick = Trait.inherit({
 
 	fps: 30,
 	loopId: null,
+	loopStarted:null,
 
 	startLoop : function() {
 		if (this.loopId) {
 			clearInterval(this.loopId);
 		}
 		this.loopId = window.setInterval(this.tick.bind(this), 1000/this.fps);
-		setTimeout(world.stopLoop.bind(this), 120000); //timer to stop the game;
-		
+		this.loopStarted = $.now();	
 		return this;
 	},
 
@@ -594,7 +548,8 @@ var CommonComponent = Object.inherit(
 	removeComponent: function(data){
 		var className = data.__proto__.constructor.__className;
 		var id = data.id;
-		var componentId = get_in(this.components, className, id);
+		delete this.copmonents[className][id]; //test
+		return;
 	},
 
 	createId: function(classDefinition){ // спизжено, нужно разобраться)
@@ -608,8 +563,11 @@ var CommonComponent = Object.inherit(
 		var time = $.now();
 		var date = new Date(time);
 		var hh = date.getHours();
+		hh = (hh <= 9)? "0" + hh : hh;
 		var mm = date.getMinutes();
+		mm = (mm <= 9)? "0" + mm : mm;
 		var ss = date.getSeconds();
+		ss = (ss <= 9)? "0" + ss : ss;
 		return "[" + hh + ":" + mm + ":" + ss + "] ";
 	},
 
@@ -625,26 +583,46 @@ var CommonComponent = Object.inherit(
 		delete newItemParams.name;
 		delete newItemParams.parent;
 		return [classDefinition, newItemData, newItemParams];
-	}
+	},
 
+	getComponentList: function(className, place){
+		if (place){
+			return place.components[className];
+		}
+		return this.components[className];
+	}
 });
 
 var Ammo = CommonComponent.inherit(
-	AmmunitionStats,
-	AmmunitionAdditional,
+
 {
 	__className: "Ammo",
 
-	name:null
+	name:null,
+//additional
+	caliber:null,
+	maxAmount:null,
+	amount:null
 })
 
-var Gun = CommonComponent.inherit(
-	WeaponStats,
-	WeaponAdditional,
-{
-	__className: "Gun",
+var Weapon = CommonComponent.inherit(
 
-	name:null
+{
+	__className: "Weapon",
+
+	name:null,
+//stats
+	clipMax:null,
+	clip:null,
+	range:null,
+	rateOfFire:null,
+	damage:null,
+	ammo:null,
+//additional
+	slot:null,
+	place:null,
+	bodySlot:"rightHand", 
+	twoHanded:false
 });
 
 var Player = CommonComponent.inherit(
@@ -654,15 +632,22 @@ var Player = CommonComponent.inherit(
 	GameDeath,
 	GameAI,
 	GameSpawn,
-	PlayerScore,
-	PlayerStats,
 	PlayerInventory,
 
 {
 	__className: "Player",
 
 	name: "NickName",
-	userInterfaceId:null
+	userInterfaceId:null,
+//stats
+	hp:null,
+	maxHp:null,
+//score
+	kills:null,
+	deaths:null,
+	shoots:null,
+	hits:null,
+	steps:null
 
 });
 
@@ -673,22 +658,38 @@ var World = CommonComponent.inherit(
 	__className: "World",
 
 	gameMap: {x: 100, y: 100},
+	deltaToStop:0, //temporary
+	stopIn:120000, //120 seconds
 
 	update: function(delta){
 		this.runAI(delta);
-		this.gameResult();
+		this.updateUI(); //update all UI 
+		this.gameResult(delta);
+		this.gameAutoStop(delta);
 	},
 
 	runAI: function(delta){
-		var o = this.components.Player;
+		var o = this.getComponentList("Player", this.parent);
 		for (var key in o){
 			var p = o[key];
 			p.aiLogic(delta);
 		}
 	},
 
-	gameResult: function(){
+	gameResult: function(delta){
 
+	},
+
+	updateUI: function(){
+		var dif = Math.round((this.stopIn - this.deltaToStop)/1000) + " seconds.";
+		$("#timeremaning span").text(dif);
+	},
+
+	gameAutoStop: function(delta){ //temporary function for stopping the game
+		if (this.deltaToStop >= this.stopIn){
+			this.stopLoop();
+		}
+		this.deltaToStop += delta;
 	},
 
 	updateUIfightingLog: function(player, data){
@@ -725,7 +726,7 @@ var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {maxHp:
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, maxHp: 2, userInterfaceId:"robot2"});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, maxHp: 2, userInterfaceId:"robot3"});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, maxHp: 2, userInterfaceId:"robot4"});
-var gun = new Gun({name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
+var gun = new Weapon({name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
 var ammoForGun = new Ammo({name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:24});
 
 
