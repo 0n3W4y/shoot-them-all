@@ -485,7 +485,7 @@ var GameWalk = Trait.inherit({
 		if (positionX || positionY){
 			this.onMove();
 			var weapon = this.getItemOnSlot("rightHand", "body");
-			this.shootingDelta = weapon.rateOfFire*1000;
+			this.shootingDelta = weapon.rateOfFire*1000; //maybe need to remove
 		}
 		
 	},
