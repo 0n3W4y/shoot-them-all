@@ -237,7 +237,6 @@ var GameAI = Trait.inherit({
 		if (this.hp === 0 || this.hp < 0){
 			if (!this.deathTime){
 				this.death();
-				this.parent.updateUIplayerStats(this);
 			}
 			this.respawn(delta);
 			return;
@@ -262,7 +261,6 @@ var GameAI = Trait.inherit({
 			this.myEnemy = null;
 			return;
 		};
-		this.parent.updateUIplayerStats(this);
 
 		var path = this.findPath(this.myEnemy);
 		if (this.needReload()){
@@ -309,9 +307,7 @@ var GameSpawn = Trait.inherit({
 			return 	this.spawn();
 		}
 		if (this.respawnDelta == 0){
-			var now = this.timeToConsole();
-			var data = now + "Respawned in " +this.respawnTime+ " seconds.";
-			this.parent.updateUIfightingLog(data);
+			this.onRespawn();
 		}
 		this.respawnDelta += delta;
 
@@ -320,7 +316,15 @@ var GameSpawn = Trait.inherit({
 	onSpawn: function(){
 		var rightNow = this.timeToConsole();
 		var data = rightNow + "spawned on [x=" + this.currentPoint.x + "; y=" + this.currentPoint.y + "]";
-		this.parent.updateUIfightingLog(this, data);
+		var parent = this.getParent();
+		parent.updateUIfightingLog(this, data);
+	},
+
+	onRespawn: function(){
+		var now = this.timeToConsole();
+		var data = now + "Respawned in " +this.respawnTime+ " seconds.";
+		var parent = this.getParent();
+		parent.updateUIfightingLog(data);
 	}
 })
 
@@ -690,6 +694,10 @@ var World = CommonComponent.inherit(
 	updateUI: function(){
 		var dif = Math.round((this.stopIn - this.deltaToStop)/1000) + " seconds.";
 		$("#timeremaning span").text(dif);
+		var allPlayers = this.getComponentList(this, "components", "Player");
+		for (var key in allPlayers){
+			this.updateUIplayerStats(allPlayers[key]);
+		}
 	},
 
 	gameAutoStop: function(delta){ //temporary function for stopping the game
