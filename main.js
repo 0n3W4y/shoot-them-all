@@ -10,23 +10,18 @@ var set_in = function(object, className, id, component){
 	return;
 };
 
-var get_in = function(object, className, id){
+var get_in = function(object, ...args) {
 	var p = object;
-	var o = null;
-	var result = undefined;
-	for (var key in p){
-		if (key == className){
-			o = p[key];
-			for (var num in o){
-				if (num == id){
-					result = o[num];
-					break;
-				}
-			}
+	for (var i = 0; i < args.length; i++) {
+		var f = args[i]
+		var n = p[f];
+		if (n === undefined) {
+			return n;
+		} else {
+			p = n;
 		}
 	}
-	
-	return result;
+	return p;
 };
 
 
@@ -62,6 +57,10 @@ var PlayerInventory = Trait.inherit({
 //			return item;
 //		}
 		slot = slot || item.bodySlot;
+		if (!slot){
+			console.log("Error from replaceItem, slot = " + slot);
+			return false;
+		}
 		var oldItem = this.getItemOnSlot(slot, newPos);
 		if (oldItem){
 			var slotForOldItem = item.slot;
@@ -104,7 +103,7 @@ var PlayerInventory = Trait.inherit({
 
 	countSlotInPlace: function(place){
 		var arr = [];
-		var components = this.getComponentList("components")
+		var components = this.getComponentList(this, "components");
 		for (var key in components){
 			var obj = components[key];
 			for (var num in obj){
@@ -115,11 +114,12 @@ var PlayerInventory = Trait.inherit({
 			}
 		}
 		arr.sort();
-		var result;
-		for (var i = 1; i <= arr.length; i++){
-			if (arr[i] != i){
-				result = i;
+		var result = 1;
+		for (var i = 0; i < arr.length; i++){
+			if (arr[i] != i+1){
 				break;				
+			}else{
+				result++;
 			}
 		}
 
@@ -127,7 +127,7 @@ var PlayerInventory = Trait.inherit({
 	},
 
 	getItemOnSlot: function(slot, place){
-		var components = this.components;
+		var components = this.getComponentList(this, "components");
 		for (var key in components){
 			var obj = components[key];
 			for (var num in obj){
@@ -173,7 +173,8 @@ var GameAI = Trait.inherit({
 	},
 
 	findAllPlayers: function(){
-		var o = this.getComponentList("Player");
+		var parent = this.getParent();
+		var o = this.getComponentList(parent, "components", "Player");
 		var enemyArr = [];
 		for (var key in o){
 			var a = o[key];
@@ -214,7 +215,8 @@ var GameAI = Trait.inherit({
 	canShootToEnemy: function(){
 		var distanceX = Math.abs(this.currentPosition.x - this.myEnemy.currentPosition.x);
 		var distanceY = Math.abs(this.currentPosition.y - this.myEnemy.currentPosition.y);
-		var shootRange = this.weapon.range;
+		var weapon = this.getItemOnSlot("rightHand", "body");
+		var shootRange = weapon.range;
 		var distance = Math.min(distanceX, distanceY);
 		if (distance <= shootRange){
 			return true;
@@ -223,7 +225,8 @@ var GameAI = Trait.inherit({
 	},
 
 	needReload: function(){
-		var clip = this.weapon.clip;
+		var weapon = this.getItemOnSlot("rightHand", "body");
+		var clip = weapon.clip;
 		if (clip == 0){
 			return true;
 		}
@@ -231,7 +234,6 @@ var GameAI = Trait.inherit({
 	},
 
 	aiLogic: function(delta){
-		this.weapon = this.getItemOnSlot("rightHand", "body"); // для упрощение обращения к оружию и его параметрам.
 		if (this.hp === 0 || this.hp < 0){
 			if (!this.deathTime){
 				this.death();
@@ -290,7 +292,8 @@ var GameSpawn = Trait.inherit({
 		var pointY = Math.round(Math.random()*worldMapY);
 		this.currentPoint = {x: pointX, y: pointY};
 		this.currentPosition = {x: pointX, y: pointY};
-		this.shootingDelta = this.weapon.rateOfFire*1000;
+		var weapon = this.getItemOnSlot("rightHand", "body");
+		this.shootingDelta = weapon.rateOfFire*1000;
 		this.deathTime = null;
 		this.hp = this.maxHp;
 		return 	this.onSpawn();
@@ -300,7 +303,8 @@ var GameSpawn = Trait.inherit({
 		if (this.respawnDelta >= this.respawnTime*1000){
 			this.currentPoint = null;
 			this.currentPosition = null;
-			this.weapon.clip = this.weapon.clipMax;
+			var weapon = this.getItemOnSlot("rightHand", "body");
+			weapon.clip = weapon.clipMax;
 			this.respawnDelta = 0;
 			return 	this.spawn();
 		}
@@ -342,7 +346,7 @@ var GameShoot = Trait.inherit({
 
 	shootingDelta: null,
 	shoot: function(delta, target){
-		var weapon = this.weapon;
+		var weapon = this.getItemOnSlot("rightHand", "body");
 		var shootingSpeed = weapon.rateOfFire*1000;
 		if (this.shootingDelta >= shootingSpeed){
 			weapon.clip--;
@@ -378,7 +382,7 @@ var GameReload = Trait.inherit({
 	__className: "GameReload",
 
 	reload: function(){
-		var weapon = this.weapon;
+		var weapon = this.getItemOnSlot("rightHand", "body");
 		weapon.clip = weapon.clipMax;
 		this.onReload();
 	},
@@ -422,7 +426,7 @@ var GameWalk = Trait.inherit({
 		if (positionX || positionY){
 			this.onMove();
 			this.steps++;
-			var weapon = this.weapon
+			var weapon = this.getItemOnSlot("rightHand", "body");
 			this.shootingDelta = weapon.rateOfFire*1000;
 		}
 		
@@ -582,14 +586,17 @@ var CommonComponent = Object.inherit(
 		delete newItemParams.id;
 		delete newItemParams.name;
 		delete newItemParams.parent;
+		delete newItemParams.__className;
 		return [classDefinition, newItemData, newItemParams];
 	},
 
-	getComponentList: function(className, place){
-		if (place){
-			return place.components[className];
-		}
-		return this.components[className];
+	getComponentList: function(object, ...args){
+		var result = get_in(object, ...args);
+		return result;
+	},
+
+	getParent: function(){
+		return this.parent;
 	}
 });
 
@@ -669,7 +676,7 @@ var World = CommonComponent.inherit(
 	},
 
 	runAI: function(delta){
-		var o = this.getComponentList("Player", this.parent);
+		var o = this.getComponentList(this, "components", "Player");
 		for (var key in o){
 			var p = o[key];
 			p.aiLogic(delta);
@@ -699,7 +706,7 @@ var World = CommonComponent.inherit(
 	},
 
 	updateUIplayerStats: function(player){
-		var weapon = player.weapon;
+		var weapon = player.getItemOnSlot("rightHand", "body");
 		var hp = player.hp || 0,
 		gun = weapon.name,
 		clip = weapon.clip || 0,
