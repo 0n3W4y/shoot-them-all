@@ -26,6 +26,61 @@ var get_in = function(object, ...args) {
 
 
 //-------------------------------------------------------------------------------------------------------------------------
+var CommonUiUpdater = Trait.inherit({
+	__className: "CommonUiUpdater",
+
+	infoObject:null,
+
+	updateUI: function(){
+		this.updateUitimer();
+
+		var allPlayers = this.getComponentList(this, "components", "Player");
+		for (var key in allPlayers){
+			this.updateUIfightingLog(allPlayers[key]);
+			this.updateUIplayerStats(allPlayers[key]);
+		}
+	},
+
+	updateUitimer: function(){
+		var dif = Math.round((this.stopIn - this.deltaToStop)/1000) + " seconds.";
+		$("#timeremaning span").text(dif);
+	},
+
+	updateUIfightingLog: function(player){
+		var playerId = "div#" + player.userInterfaceId;
+		var playerData = player.dataFightingLog;
+		for (var key in playerData){
+			var data = playerData[key];
+			if (data){
+				data = "<li>" + data + "</li>";
+				$(playerId).find("ul#fighting-log").prepend(data);
+				playerData[key] = null;
+			}
+		}
+	},
+
+	updateUIplayerStats: function(player){
+		var weapon = player.getItemOnSlot("rightHand", "body");
+		var hp = player.hp || 0,
+		gun = weapon.name,
+		clip = weapon.clip || 0,
+		kills = player.kills || 0,
+		steps = player.steps || 0,
+		death = player.deaths || 0,
+		shoots = player.shoots || 0,
+		hits = player.hits || 0,
+		nickName = player.name,
+		status = (player.deathTime) ? "Dead" : "Alive",
+		enemy = (player.myEnemy) ? player.myEnemy.name : "No target",
+		acc = (hits/shoots) ? Math.round(hits/shoots*100) + "%" : "0%",
+		playerId = "div#" + player.userInterfaceId;
+
+		$(playerId).find("div#nickname").text(nickName);
+		var stats = "Health: " +hp+ " | Status: " +status+ "<br> Enemy: " +enemy+ "<br> Gun: " +gun+ " | Clip: " +clip+ "<br> Kills: " +kills+ " | Death: " +death+ "<br> Shoots: " +shoots+ " | Hits: " +hits+ " | Acc: " +acc+ "<br> Steps: " +steps;
+		$(playerId).find("div.statstext").html(stats);
+	}
+
+});
 
 var PlayerInventory = Trait.inherit({
 	__className: "PlayerInventory",
@@ -143,7 +198,7 @@ var PlayerInventory = Trait.inherit({
 	onPlaceObject: function(item){
 		var now = this.timeToConsole();
 		var data = now + item.name + " placed into " + item.place + " // slot:" + item.slot;
-		this.parent.updateUIfightingLog(this, data);
+		this.dataFightingLog.onPlaceObject = data;
 	}
 });
 
@@ -316,15 +371,13 @@ var GameSpawn = Trait.inherit({
 	onSpawn: function(){
 		var rightNow = this.timeToConsole();
 		var data = rightNow + "spawned on [x=" + this.currentPoint.x + "; y=" + this.currentPoint.y + "]";
-		var parent = this.getParent();
-		parent.updateUIfightingLog(this, data);
+		this.dataFightingLog.onSpawn = data;
 	},
 
 	onRespawn: function(){
 		var now = this.timeToConsole();
 		var data = now + "Respawned in " +this.respawnTime+ " seconds.";
-		var parent = this.getParent();
-		parent.updateUIfightingLog(data);
+		this.dataFightingLog.onRespawn = data;
 	}
 })
 
@@ -341,7 +394,7 @@ var GameDeath = Trait.inherit({
 	onDeath: function(){
 		var rightNow = this.timeToConsole();
 		var data = rightNow + "was killed by " + this.killer.name;
-		this.parent.updateUIfightingLog(this, data);
+		this.dataFightingLog.onDeath = data;
 	}
 });
 
@@ -378,7 +431,7 @@ var GameShoot = Trait.inherit({
 	onShoot: function(target, missOrHit){
 		var rightNow = this.timeToConsole();
 		var data = rightNow + "shooted to " + target.name + ", and " + missOrHit;
-		this.parent.updateUIfightingLog(this, data);
+		this.dataFightingLog.onShoot = data;
 	}
 });
 
@@ -394,7 +447,7 @@ var GameReload = Trait.inherit({
 	onReload: function(){
 		var rightNow = this.timeToConsole();
 		var data = rightNow + "reloading his weapon";
-		this.parent.updateUIfightingLog(this, data);
+		this.dataFightingLog.onReload = data;
 	}
 })
 
@@ -421,15 +474,16 @@ var GameWalk = Trait.inherit({
 		if (difX > 1 - dif && difX < 1 + dif){
 			positionX = Math.round(pointX);
 			this.currentPosition.x = positionX;
+			this.steps++;
 		}
 		if (difY > 1 - dif && difY < 1 + dif){
 			positionY = Math.round(pointY);
 			this.currentPosition.y = positionY;
+			this.steps++;
 		}
 
 		if (positionX || positionY){
 			this.onMove();
-			this.steps++;
 			var weapon = this.getItemOnSlot("rightHand", "body");
 			this.shootingDelta = weapon.rateOfFire*1000;
 		}
@@ -439,7 +493,7 @@ var GameWalk = Trait.inherit({
 	onMove: function(){ //log
 		var rightNow = this.timeToConsole();
 		var data = rightNow + " was moved in to: [x=" + this.currentPosition.x + "; y=" + this.currentPosition.y + "]";
-		this.parent.updateUIfightingLog(this, data);
+		this.dataFightingLog.onMove = data;
 	}
 });
 
@@ -549,6 +603,7 @@ var CommonComponent = Object.inherit(
 		set_in(this.components, className, component.id, component);
 		if (className == "Player"){
 			component.initInventory(params.inventory);
+			component.dataFightingLog = {};
 		}
 		return component;
 	},
@@ -665,6 +720,7 @@ var Player = CommonComponent.inherit(
 var World = CommonComponent.inherit(
 	CommonTick,
 	GameBotControl,
+	CommonUiUpdater,
 {
 	__className: "World",
 
@@ -691,47 +747,11 @@ var World = CommonComponent.inherit(
 
 	},
 
-	updateUI: function(){
-		var dif = Math.round((this.stopIn - this.deltaToStop)/1000) + " seconds.";
-		$("#timeremaning span").text(dif);
-		var allPlayers = this.getComponentList(this, "components", "Player");
-		for (var key in allPlayers){
-			this.updateUIplayerStats(allPlayers[key]);
-		}
-	},
-
 	gameAutoStop: function(delta){ //temporary function for stopping the game
 		if (this.deltaToStop >= this.stopIn){
 			this.stopLoop();
 		}
 		this.deltaToStop += delta;
-	},
-
-	updateUIfightingLog: function(player, data){
-		var playerId = "div#" + player.userInterfaceId;
-		data = "<li>" + data + "</li>";
-		$(playerId).find("ul#fighting-log").prepend(data);
-	},
-
-	updateUIplayerStats: function(player){
-		var weapon = player.getItemOnSlot("rightHand", "body");
-		var hp = player.hp || 0,
-		gun = weapon.name,
-		clip = weapon.clip || 0,
-		kills = player.kills || 0,
-		steps = player.steps || 0,
-		death = player.deaths || 0,
-		shoots = player.shoots || 0,
-		hits = player.hits || 0,
-		nickName = player.name,
-		status = (player.deathTime) ? "Dead" : "Alive",
-		enemy = (player.myEnemy) ? player.myEnemy.name : "No target",
-		acc = (hits/shoots) ? Math.round(hits/shoots*100) + "%" : "0%",
-		playerId = "div#" + player.userInterfaceId;
-
-		$(playerId).find("div#nickname").text(nickName);
-		var stats = "Health: " +hp+ " | Status: " +status+ "<br> Enemy: " +enemy+ "<br> Gun: " +gun+ " | Clip: " +clip+ "<br> Kills: " +kills+ " | Death: " +death+ "<br> Shoots: " +shoots+ " | Hits: " +hits+ " | Acc: " +acc+ "<br> Steps: " +steps;
-		$(playerId).find("div.statstext").html(stats);
 	}
 
 });
