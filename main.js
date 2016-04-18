@@ -32,7 +32,7 @@ var CommonUiUpdater = Trait.inherit({
 	infoObject:null,
 
 	updateUI: function(){
-		this.updateUitimer();
+		this.updateUiTimer();
 
 		var allPlayers = this.getComponentList(this, "components", "Player");
 		for (var key in allPlayers){
@@ -41,7 +41,7 @@ var CommonUiUpdater = Trait.inherit({
 		}
 	},
 
-	updateUitimer: function(){
+	updateUiTimer: function(){
 		var dif = Math.round((this.stopIn - this.deltaToStop)/1000) + " seconds.";
 		$("#timeremaning span").text(dif);
 	},
@@ -90,10 +90,11 @@ var PlayerInventory = Trait.inherit({
 	beltMaxSlots:null,
 	beltCurrentSLots:null,
 	//equip:  head,  shoulders, hands, torso, pants,  boots,  ring1,  ring2,  rightHand,  leftHand;
-	initInventory: function(data){
-		this.bagMaxSlots = (data) ? data.bagMaxSlots || 10 : 10; //default 10
+
+	initInventory: function(){
+		this.bagMaxSlots = this.bagMaxSlots || 10;  //default 10
 		this.bagCurrentSlots = this.bagMaxSlots;
-		this.beltMaxSlots = (data) ? data.beltMaxSlots || 5 : 5; //default 5
+		this.beltMaxSlots = this.beltMaxSlots || 5; //default 5
 		this.beltCurrentSLots = this.beltMaxSlots;
 	},
 
@@ -102,15 +103,6 @@ var PlayerInventory = Trait.inherit({
 			console.log("Error from placeItem, newPos typeof = " + (typeof newPos));
 			return false;
 		}
-//		if (item.maxAmount > 1){ // for collectable
-//			var className = item.__proto__.__className;
-//			var id = item.id;
-//			var itemInBag = get_in(this.components, className, id);
-//			if (itemInBag){
-//
-//			}
-//			return item;
-//		}
 		slot = slot || item.bodySlot;
 		if (!slot){
 			console.log("Error from replaceItem, slot = " + slot);
@@ -136,10 +128,33 @@ var PlayerInventory = Trait.inherit({
 		}
 		this.onPlaceObject(item);
 		return item;
-		
 	},
 
-	lootObject: function(item){ 
+	lootObject: function(item){
+		var parent = this.getObjectParent(item);
+		var id = item.id;
+		var className = item.__proto__.__className;
+
+		if (item.maxAmount > 1){ 
+			var itemLocation = this.getItemLocation(item);
+			if (itemLocation){
+				var itemInBag = this.getItemOnSlot(itemLocation[0], itemLocation[1]);
+				var sum = item.amount + itemInBag.amount;
+				if (sum <= itemInBag.maxAmount){
+					itemInBag.amount = sum;
+					this.removeComponent(parent, className, id);// need to delete item;
+					this.onStackObject(itemInBag, sum);
+					return itemInBag;
+				}else{
+					var dif = itemInBag.maxAmount - itemInBag.amount;
+					itemInBag.amount = item.maxAmount;
+					item.amount -= dif;
+					this.onStackObject(itemInBag, dif);
+					return itemInBag;
+				}			
+			}
+		}
+
 		if (this.bagCurrentSlots > 0){
 			var newItem = this.getData(item);
 			var dataItem = newItem[1];
@@ -149,8 +164,10 @@ var PlayerInventory = Trait.inherit({
 			var amount = (newItem.amount) ? newItem.amount : 1;
 			var slot = this.countSlotInPlace("bag");
 			this.replaceItem("bag", newItem, amount, slot);
+			this.removeComponent(parent, className, id);// need to delete item;
 			return newItem;
 		}
+		
 		console.log("error from lootObject, bagCurrentSlots <= 0");
 		return false;
 		
@@ -195,9 +212,28 @@ var PlayerInventory = Trait.inherit({
 		}
 	},
 
+	getItemLocation: function(item){
+		var components = this.getComponentList(this, "components");
+		for (var key in components){
+			var obj = components[key];
+			for (var num in obj){
+				if (obj[num].itemUniqId == item.itemUniqId){
+					return [obj[num].slot, obj[num].place];
+				}
+			}
+		}
+		return false;
+	},
+
 	onPlaceObject: function(item){
 		var now = this.timeToConsole();
 		var data = now + item.name + " placed into " + item.place + " // slot:" + item.slot;
+		this.dataFightingLog.onPlaceObject = data;
+	},
+
+	onStackObject: function(item, amount){
+		var now = this.timeToConsole();
+		var data = now + item.name + " looted in to " + item.place + " // slot:" + item.slot + "; Amount: " + amount + "; Current Amount: " + item.amount;
 		this.dataFightingLog.onPlaceObject = data;
 	}
 });
@@ -288,6 +324,38 @@ var GameAI = Trait.inherit({
 		return false;
 	},
 
+	canReload: function(){
+		var weapon = this.getItemOnSlot("rightHand", "body");
+		var ammo = weapon.ammo;
+		var components = this.getComponentList(this, "components");
+		for (var key in components){
+			var obj = components[key];
+			for (var num in obj){
+				var item = obj[num];
+				if (item.caliber == ammo){
+					return item;
+				}
+			}
+		}
+	},
+
+	getLoot: function(player, enemy){
+		var components = this.getComponentList(enemy, "components");
+		var arr = [];
+		for (var key in components){
+			var obj = components[key]
+			for (var num in obj){
+				if (obj[num].place == "bag"){
+					arr.push(obj[num]);
+				}
+			}
+		}
+
+		for (var i = 0; i < arr.length; i++){
+			this.lootObject(arr[i]);
+		}
+	},
+
 	aiLogic: function(delta){
 		if (this.hp === 0 || this.hp < 0){
 			if (!this.deathTime){
@@ -313,19 +381,27 @@ var GameAI = Trait.inherit({
 			}
 		}
 		if (this.myEnemy.deathTime){
+			if (this.myEnemy.killer.name == this.name){
+				this.getLoot(this, this.myEnemy);
+			}
 			this.myEnemy = null;
 			return;
 		};
 
 		var path = this.findPath(this.myEnemy);
 		if (this.needReload()){
-			this.reload();
-			return;
+			var ammo = this.canReload;
+			if (ammo){
+				this.reload(ammo);
+				return;
+			}			
+		}else{
+			if (this.canShootToEnemy()){
+				this.shoot(delta, this.myEnemy);
+				return;
+			}
 		}
-		if (this.canShootToEnemy()){
-			this.shoot(delta, this.myEnemy);
-			return;
-		}
+		
 		this.move(delta ,path);
 	}
 
@@ -359,6 +435,10 @@ var GameSpawn = Trait.inherit({
 			var weapon = this.getItemOnSlot("rightHand", "body");
 			weapon.clip = weapon.clipMax;
 			this.respawnDelta = 0;
+			this.lastKiller = this.killer;
+			this.killer = null;
+			var component = this.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
+			this.replaceItem("bag", component, 12, 1);
 			return 	this.spawn();
 		}
 		if (this.respawnDelta == 0){
@@ -388,6 +468,7 @@ var GameDeath = Trait.inherit({
 
 	death: function(){
 		this.deathTime = $.now();
+		this.deaths++;
 		this.onDeath();
 	},
 
@@ -414,8 +495,6 @@ var GameShoot = Trait.inherit({
 				this.hits++;
 			}
 			if (!target.hp){
-				this.myEnemy = null;
-				target.deaths++;
 				this.kills++;
 				target.killer = this;
 			}
@@ -438,9 +517,17 @@ var GameShoot = Trait.inherit({
 var GameReload = Trait.inherit({
 	__className: "GameReload",
 
-	reload: function(){
+	reload: function(ammo){
 		var weapon = this.getItemOnSlot("rightHand", "body");
-		weapon.clip = weapon.clipMax;
+		var amount = ammo.amount;
+		for (var i = 0; i < weapon.clipMax; i++){
+			weapon.clip += amount;
+			amount--;
+			if (!amount){
+				break;
+				console.log(weapon.name + " have no more ammo :( ");
+			}
+		}
 		this.onReload();
 	},
 
@@ -602,17 +689,14 @@ var CommonComponent = Object.inherit(
 		var component = new classDefinition(data, params);
 		set_in(this.components, className, component.id, component);
 		if (className == "Player"){
-			component.initInventory(params.inventory);
+			component.initInventory();
 			component.dataFightingLog = {};
 		}
 		return component;
 	},
 
-	removeComponent: function(data){
-		var className = data.__proto__.constructor.__className;
-		var id = data.id;
-		delete this.copmonents[className][id]; //test
-		return;
+	removeComponent: function(object, className, id, params){
+		set_in(object, className, id, null);
 	},
 
 	createId: function(classDefinition){ // спизжено, нужно разобраться)
@@ -656,6 +740,10 @@ var CommonComponent = Object.inherit(
 
 	getParent: function(){
 		return this.parent;
+	},
+
+	getObjectParent: function(obj){
+		return obj.parent;
 	}
 });
 
@@ -725,8 +813,6 @@ var World = CommonComponent.inherit(
 	__className: "World",
 
 	gameMap: {x: 100, y: 100},
-	deltaToStop:0, //temporary
-	stopIn:120000, //120 seconds
 
 	update: function(delta){
 		this.runAI(delta);
@@ -747,7 +833,9 @@ var World = CommonComponent.inherit(
 
 	},
 
-	gameAutoStop: function(delta){ //temporary function for stopping the game
+	deltaToStop:0, //temporary
+	stopIn:120000, //120 seconds
+	gameAutoStop: function(delta){ //temporary function to stop the game
 		if (this.deltaToStop >= this.stopIn){
 			this.stopLoop();
 		}
@@ -757,12 +845,18 @@ var World = CommonComponent.inherit(
 });
 
 var world = new World({id:"main", name:"DesertHiils", parent:window});
-var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {maxHp: 2, inventory:{bagMaxSlots:15}, userInterfaceId:"robot1"});
+var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {maxHp: 2, bagMaxSlots:15, userInterfaceId:"robot1"});
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, maxHp: 2, userInterfaceId:"robot2"});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, maxHp: 2, userInterfaceId:"robot3"});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, maxHp: 2, userInterfaceId:"robot4"});
-var gun = new Weapon({name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
-var ammoForGun = new Ammo({name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:24});
+var player1gun = playerOne.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
+var player2gun = playerTwo.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
+var player3gun = playerThree.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
+var player4gun = playerFour.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
+var player1ammo = playerOne.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
+var player2ammo = playerTwo.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
+var player3ammo = playerThree.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
+var player4ammo = playerFour.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
 
 
 $(document).ready(function(){
@@ -773,17 +867,13 @@ $(document).ready(function(){
 	$("input#start").attr("onclick", "world.startLoop()");
 	$("input#add_bot").attr("onclick", "world.addBotToWorld()");
 	$("input#del_bot").attr("onclick", "removeBotFromWorld()");
-	var player1Gun = playerOne.lootObject(gun);
-	playerOne.lootObject(ammoForGun);
-	var player2Gun = playerTwo.lootObject(gun);
-	playerTwo.lootObject(ammoForGun);
-	var player3Gun = playerThree.lootObject(gun);
-	playerThree.lootObject(ammoForGun);
-	var player4Gun = playerFour.lootObject(gun);
-	playerFour.lootObject(ammoForGun);
-	playerOne.replaceItem("body", player1Gun);
-	playerTwo.replaceItem("body", player2Gun);
-	playerThree.replaceItem("body", player3Gun);
-	playerFour.replaceItem("body", player4Gun);
+	playerOne.replaceItem("bag", player1ammo, 12, 1);
+	playerTwo.replaceItem("bag", player2ammo, 12, 1);
+	playerThree.replaceItem("bag", player3ammo, 12, 1);
+	playerFour.replaceItem("bag", player4ammo, 12, 1);
+	playerOne.replaceItem("body", player1gun);
+	playerTwo.replaceItem("body", player2gun);
+	playerThree.replaceItem("body", player3gun);
+	playerFour.replaceItem("body", player4gun);
 
 })
