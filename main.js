@@ -24,6 +24,12 @@ var get_in = function(object, ...args) {
 	return p;
 };
 
+//temporary
+
+var addAmmo = function(player){
+	var component = player.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:24, itemUniqId:"ammo-0.44", amount:0});
+	player.replaceItem("bag", component, 1 , 1);
+}
 
 //-------------------------------------------------------------------------------------------------------------------------
 var CommonUiUpdater = Trait.inherit({
@@ -100,7 +106,7 @@ var PlayerInventory = Trait.inherit({
 
 	replaceItem: function(newPos, item, amount, slot, params){
 		if (typeof newPos != "string"){
-			console.log("Error from placeItem, newPos typeof = " + (typeof newPos));
+			console.log("Error from replaceItem, newPos typeof = " + (typeof newPos));
 			return false;
 		}
 		slot = slot || item.bodySlot;
@@ -108,12 +114,16 @@ var PlayerInventory = Trait.inherit({
 			console.log("Error from replaceItem, slot = " + slot);
 			return false;
 		}
+
 		var oldItem = this.getItemOnSlot(slot, newPos);
 		if (oldItem){
 			var slotForOldItem = item.slot;
 			var placeForOldItem = item.place;
 			item.slot = oldItem.slot;
 			item.place = oldItem.place;
+			if (amount){
+				item.amount = amount;
+			}
 			oldItem.slot = slotForOldItem;
 			oldItem.place = placeForOldItem;
 			return item; //!!!!
@@ -121,11 +131,11 @@ var PlayerInventory = Trait.inherit({
 
 		item.place = newPos;
 		item.slot = slot;
+		if (amount){
+			item.amount = amount;
+		}
 
-		if (newPos != "body"){
-			var position = newPos + "CurrentSlots";
-			this[position]--;
-		}else{
+		if (newPos == "body"){
 			this.bagCurrentSlots++;
 		}
 		this.onPlaceObject(item);
@@ -134,6 +144,7 @@ var PlayerInventory = Trait.inherit({
 
 	lootObject: function(item){
 		var parent = this.getObjectParent(item);
+		var components = this.getComponentList(parent, "components");
 		var id = item.id;
 		var className = item.__proto__.__className;
 
@@ -144,14 +155,16 @@ var PlayerInventory = Trait.inherit({
 				var sum = item.amount + itemInBag.amount;
 				if (sum <= itemInBag.maxAmount){
 					itemInBag.amount = sum;
-					this.removeComponent(parent, className, id);// need to delete item;
-					this.onStackObject(itemInBag, sum);
+					var collectedAmount = item.amount;
+					this.removeComponent(components, className, id);// need to delete item;
+					this.onStackObject(itemInBag, collectedAmount);
 					return itemInBag;
 				}else{
 					var dif = itemInBag.maxAmount - itemInBag.amount;
 					itemInBag.amount = item.maxAmount;
 					item.amount -= dif;
 					this.onStackObject(itemInBag, dif);
+					this.removeComponent(components, className, id);// need to delete item; temporary;
 					return itemInBag;
 				}			
 			}
@@ -166,7 +179,9 @@ var PlayerInventory = Trait.inherit({
 			var amount = (newItem.amount) ? newItem.amount : 1;
 			var slot = this.countSlotInPlace("bag");
 			this.replaceItem("bag", newItem, amount, slot);
-			this.removeComponent(parent, className, id);// need to delete item;
+			this.bagCurrentSlots--;
+			this.removeComponent(components, className, id);// need to delete item;
+			this.onPlaceObject(newItem);
 			return newItem;
 		}
 		
@@ -334,11 +349,12 @@ var GameAI = Trait.inherit({
 			var obj = components[key];
 			for (var num in obj){
 				var item = obj[num];
-				if (item.caliber == ammo){
+				if (item.caliber == ammo && item.amount > 0){
 					return item;
 				}
 			}
 		}
+		return false;
 	},
 
 	getLoot: function(player, enemy){
@@ -392,7 +408,7 @@ var GameAI = Trait.inherit({
 
 		var path = this.findPath(this.myEnemy);
 		if (this.needReload()){
-			var ammo = this.canReload;
+			var ammo = this.canReload();
 			if (ammo){
 				this.reload(ammo);
 				return;
@@ -427,8 +443,7 @@ var GameSpawn = Trait.inherit({
 		this.shootingDelta = weapon.rateOfFire*1000;
 		this.deathTime = null;
 		this.hp = this.maxHp;
-		var component = this.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
-		this.replaceItem("bag", component, 12, 1);
+		addAmmo(this); //temporary
 		return 	this.onSpawn();
 	},
 
@@ -439,7 +454,7 @@ var GameSpawn = Trait.inherit({
 			var weapon = this.getItemOnSlot("rightHand", "body");
 			weapon.clip = weapon.clipMax;
 			this.respawnDelta = 0;
-			this.lastKiller = this.killer;
+			this.lastKiller = this.killer.name;
 			this.killer = null;
 			return 	this.spawn();
 		}
@@ -523,11 +538,13 @@ var GameReload = Trait.inherit({
 		var weapon = this.getItemOnSlot("rightHand", "body");
 		var amount = ammo.amount;
 		for (var i = 0; i < weapon.clipMax; i++){
-			weapon.clip += amount;
+			weapon.clip += 1;
 			amount--;
 			if (!amount){
+				var now = this.timeToConsole();
+				console.log(now + this.name + ", " + weapon.name + " have no more ammo :( ");
+				//delete this component, if 0;
 				break;
-				console.log(weapon.name + " have no more ammo :( ");
 			}
 		}
 		this.onReload();
@@ -696,7 +713,8 @@ var CommonComponent = Object.inherit(
 	},
 
 	removeComponent: function(object, className, id, params){
-		set_in(object, className, id, null);
+		set_in(object, className, id, undefined);
+		delete object[className][id]; //test
 	},
 
 	createId: function(classDefinition){ // спизжено, нужно разобраться)
@@ -849,10 +867,10 @@ var playerOne = world.createComponent(Player, {name:"NormalWalkingBot"}, {maxHp:
 var playerTwo = world.createComponent(Player, {name:"SlowWalkingBot"}, {velocity: 0.75, maxHp: 2, userInterfaceId:"robot2"});
 var playerThree = world.createComponent(Player, {name:"FastWalkingBot"}, {velocity: 1.25, maxHp: 2, userInterfaceId:"robot3"});
 var playerFour = world.createComponent(Player, {name:"VerySlowWalkingBot"}, {velocity: 0.5, maxHp: 2, userInterfaceId:"robot4"});
-var player1gun = playerOne.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
-var player2gun = playerTwo.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
-var player3gun = playerThree.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
-var player4gun = playerFour.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
+var player1gun = playerOne.createComponent(Weapon, {name: "Magnum 44"}, {clip: 5, clipMax: 5, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44", place:"body", slot:"rightHand"});
+var player2gun = playerTwo.createComponent(Weapon, {name: "Magnum 44"}, {clip: 5, clipMax: 5, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44", place:"body", slot:"rightHand"});
+var player3gun = playerThree.createComponent(Weapon, {name: "Magnum 44"}, {clip: 5, clipMax: 5, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44", place:"body", slot:"rightHand"});
+var player4gun = playerFour.createComponent(Weapon, {name: "Magnum 44"}, {clip: 5, clipMax: 5, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44", place:"body", slot:"rightHand"});
 
 
 
@@ -864,9 +882,5 @@ $(document).ready(function(){
 	$("input#start").attr("onclick", "world.startLoop()");
 	$("input#add_bot").attr("onclick", "world.addBotToWorld()");
 	$("input#del_bot").attr("onclick", "removeBotFromWorld()");
-	playerOne.replaceItem("body", player1gun);
-	playerTwo.replaceItem("body", player2gun);
-	playerThree.replaceItem("body", player3gun);
-	playerFour.replaceItem("body", player4gun);
 
 })
