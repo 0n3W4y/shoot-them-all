@@ -125,6 +125,8 @@ var PlayerInventory = Trait.inherit({
 		if (newPos != "body"){
 			var position = newPos + "CurrentSlots";
 			this[position]--;
+		}else{
+			this.bagCurrentSlots++;
 		}
 		this.onPlaceObject(item);
 		return item;
@@ -425,6 +427,8 @@ var GameSpawn = Trait.inherit({
 		this.shootingDelta = weapon.rateOfFire*1000;
 		this.deathTime = null;
 		this.hp = this.maxHp;
+		var component = this.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
+		this.replaceItem("bag", component, 12, 1);
 		return 	this.onSpawn();
 	},
 
@@ -437,8 +441,6 @@ var GameSpawn = Trait.inherit({
 			this.respawnDelta = 0;
 			this.lastKiller = this.killer;
 			this.killer = null;
-			var component = this.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
-			this.replaceItem("bag", component, 12, 1);
 			return 	this.spawn();
 		}
 		if (this.respawnDelta == 0){
@@ -674,9 +676,7 @@ var CommonComponent = Object.inherit(
 		this.components = this.components ? this.components : {};
 		if (params){
 			for (var key in params){
-				if (typeof params[key] != "Object"){
-					this[key] = params[key];
-				}
+				this[key] = params[key];
 			}
 		}
 	},
@@ -853,10 +853,7 @@ var player1gun = playerOne.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6
 var player2gun = playerTwo.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
 var player3gun = playerThree.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
 var player4gun = playerFour.createComponent(Weapon, {name: "Magnum 44"}, {clip: 6, clipMax: 6, rateOfFire: 1, range: 4, damage: 1, equipPlace:"rightHand", ammo:"0,44"});
-var player1ammo = playerOne.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
-var player2ammo = playerTwo.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
-var player3ammo = playerThree.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
-var player4ammo = playerFour.createComponent(Ammo, {name:"Ammo 0,44"}, {caliber:"0,44", maxAmount:240, itemUniqId:"ammo-0.44"});
+
 
 
 $(document).ready(function(){
@@ -867,10 +864,6 @@ $(document).ready(function(){
 	$("input#start").attr("onclick", "world.startLoop()");
 	$("input#add_bot").attr("onclick", "world.addBotToWorld()");
 	$("input#del_bot").attr("onclick", "removeBotFromWorld()");
-	playerOne.replaceItem("bag", player1ammo, 12, 1);
-	playerTwo.replaceItem("bag", player2ammo, 12, 1);
-	playerThree.replaceItem("bag", player3ammo, 12, 1);
-	playerFour.replaceItem("bag", player4ammo, 12, 1);
 	playerOne.replaceItem("body", player1gun);
 	playerTwo.replaceItem("body", player2gun);
 	playerThree.replaceItem("body", player3gun);
